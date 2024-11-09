@@ -1,6 +1,6 @@
-### Matematyczny Wyścig - Opis Projektu TEST
+# Matematyczny Wyścig - Opis Projektu TEST
 
-**Opis:**
+## **Opis:**
 
 Gracz łączy się z serwerem i wysyła swój nick (jeśli nick jest już zajęty, serwer prosi o podanie innego nicku).
 
