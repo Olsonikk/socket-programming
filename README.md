@@ -1,4 +1,4 @@
-# Matematyczny Wyścig - Opis Projektu TEST
+# Matematyczny Wyścig - Opis Projektu
 
 ## **Opis:**
 
