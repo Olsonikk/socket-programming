@@ -1,66 +1,112 @@
 #include "server_common.hpp"
 #include <poll.h>
+#include <vector>
+#include <string>
+#include <cstring>
+#include <unistd.h> // for read and write
 
-#define MAX_PLAYERS 10
-int players_num = 1;
+using namespace std;
+
+class Player
+{
+    // private:
+    //     string question = "Podaj imie: ";
+    public:
+        string name;
+        unsigned int room_id;
+        int fd;
+        pollfd pfd;
+        bool nameAsked = false;
+
+        void askName()
+        {
+            char buf[64];
+            //write(this->fd, question.c_str(), question.length());
+            ssize_t bytes_read = read(this->fd, buf, sizeof(buf) - 1);
+            if (bytes_read > 0)
+            {
+                buf[bytes_read] = '\0'; // Null-terminate the string
+                this->name = buf;
+                this->nameAsked = true;
+            }
+        }
+};
 
 int main(int argc, char **argv)
 {
     int servSock = socket_bind_listen(argc, argv, SOCK_STREAM);
-    //int player1, player2;
-    char a[] = "Witaj graczu! \n";
-    char b[] = "START";
-    //player1 = accept(servSock, nullptr, nullptr);
-    //send(player1, a, sizeof(a), 0);
-    //player2 = accept(servSock, nullptr, nullptr);
-    // send(player1, b, sizeof(b), 0);
-    // send(player2, b, sizeof(b), 0);
-    // close(servSock);
+    char a[] = "Witaj graczu! Podaj imie: \n";
 
-    pollfd pfds[MAX_PLAYERS]{};
-    pfds[0].fd = servSock;
-    pfds[0].events = POLLIN;
-    
-    while(1)
+    std::vector<Player> players;
+    pollfd servPfd = {servSock, POLLIN, 0};
+    Player serverPlayer;
+    serverPlayer.fd = servSock;
+    serverPlayer.pfd = servPfd;
+    players.push_back(serverPlayer);
+
+    while (true)
     {
-        sockaddr_in client_addr;
-        socklen_t client_addr_size = sizeof(client_addr);
+        std::vector<pollfd> pfds;
+        for (const auto& p : players)
+        {
+            pfds.push_back(p.pfd);
+        }
 
-        int ile_gotowych = poll(pfds, players_num, -1);
-        if (ile_gotowych == -1)
+        int ready = poll(pfds.data(), pfds.size(), -1);
+        if (ready == -1)
         {
             perror("problem z poll.");
             exit(1);
         }
-        
-        if(ile_gotowych > 0)
+
+        if (pfds[0].revents & POLLIN)
         {
-            if(pfds[0].revents & POLLIN)
+            sockaddr_in client_addr;
+            socklen_t client_addr_size = sizeof(client_addr);
+            int player_fd = accept(servSock, (sockaddr *)&client_addr, &client_addr_size);
+            if (player_fd == -1)
             {
-                int player_fd = accept(servSock, (sockaddr*)&client_addr, &client_addr_size);
-                if(player_fd == -1)
-                {
-                    perror("problem z accept.");
-                    exit(1);
-                }
-                printf("Gracz %d dolaczyl do gry.\n", players_num);
-                pfds[players_num].fd = player_fd;
-                pfds[players_num].events = POLLIN;
-                players_num++;
-
-                write(player_fd, a, sizeof(a)); 
+                perror("problem z accept.");
+                exit(1);
             }
+            printf("Nowy gracz dolaczyl do gry.\n");
+            write(player_fd, a, sizeof(a));
+            Player newPlayer;
+            newPlayer.fd = player_fd;
+            newPlayer.pfd = {player_fd, POLLIN, 0};
+            players.push_back(newPlayer);
+        }
 
-            for(int i=1; i<MAX_PLAYERS; i++)
+        for (size_t i = 1; i < players.size(); ++i)
+        {
+            if (pfds[i].revents & POLLIN)
             {
-                  if (pfds[i].fd > 0 && pfds[i].revents & POLLIN)
-                  {
-                    char buffer[128];
-                    read(pfds[i].fd, buffer, sizeof(buffer));
-                    printf("Wiadomosc od gracza %d: %s \n",i,buffer);
-                  }
+                if (!players[i].nameAsked)
+                {
+                    players[i].askName();
+                    printf("Nowy Gracz: %s\n", players[i].name.c_str());
+                }
+                else
+                {
+                    char buffer[128]{};
+                    ssize_t bytes_read = read(players[i].fd, buffer, sizeof(buffer));
+                    if (bytes_read <= 0)
+                    {
+                        if (bytes_read == 0)
+                        {
+                            printf("Gracz %s opuscil gre.\n", players[i].name.c_str());
+                        }
+                        close(players[i].fd);
+                        players.erase(players.begin() + i);
+                        --i;
+                    }
+                    else
+                    {
+                        buffer[bytes_read] = '\0'; // Null-terminate the string
+                        printf("Wiadomosc od %s: %s\n", players[i].name.c_str(), buffer);
+                    }
+                }
             }
         }
     }
-
 }
