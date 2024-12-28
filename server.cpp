@@ -14,7 +14,7 @@ class Player
     public:
         string name;
         unsigned int room_id;
-        int fd;
+        int fd = this -> fd;
         pollfd pfd;
         bool nameAsked = false;
 
@@ -29,6 +29,12 @@ class Player
                 this->name = buf;
                 this->nameAsked = true;
             }
+        }
+
+        void sendMenu()
+        {
+            string message = "Wybierz opcje: \n 1.Dołącz do pokoju. \n 2.Stwórz nowy pokój. \n";
+            write(this->fd, message.c_str(), message.length());
         }
 };
 
@@ -73,7 +79,7 @@ int main(int argc, char **argv)
             write(player_fd, a, sizeof(a));
             Player newPlayer;
             newPlayer.fd = player_fd;
-            newPlayer.pfd = {player_fd, POLLIN, 0};
+            newPlayer.pfd = {player_fd, POLLIN|POLLOUT, 0};
             players.push_back(newPlayer);
         }
 
@@ -102,9 +108,16 @@ int main(int argc, char **argv)
                     }
                     else
                     {
+                       
                         buffer[bytes_read] = '\0'; // Null-terminate the string
                         printf("Wiadomosc od %s: %s\n", players[i].name.c_str(), buffer);
                     }
+                }
+
+                if((pfds[i].revents & POLLOUT) && players[i].nameAsked)
+                {
+                    players[i].sendMenu();
+                    players[i].pfd.events &= ~POLLOUT;
                 }
             }
         }
