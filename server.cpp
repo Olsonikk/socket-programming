@@ -9,39 +9,58 @@ using namespace std;
 
 class Player
 {
-    // private:
-    //     string question = "Podaj imie: ";
     public:
         string name;
-        unsigned int room_id;
-        int fd = this -> fd;
+        unsigned int room_id = 0;
+        int fd;
         pollfd pfd;
         bool nameAsked = false;
 
         void askName()
         {
             char buf[64];
-            //write(this->fd, question.c_str(), question.length());
             ssize_t bytes_read = read(this->fd, buf, sizeof(buf) - 1);
             if (bytes_read > 0)
             {
                 buf[bytes_read] = '\0'; // Null-terminate the string
-                this->name = buf;
-                this->nameAsked = true;
+                name = buf;
+                nameAsked = true;
             }
         }
 
         void sendMenu()
         {
             string message = "Wybierz opcje: \n 1.Dołącz do pokoju. \n 2.Stwórz nowy pokój. \n";
-            write(this->fd, message.c_str(), message.length());
+            write(fd, message.c_str(), message.length());
+        }
+
+        void menuHandler(char input[16])
+        {
+
+            string make_room_msg = "Podaj nazwę pokoju (max 16 znaków): ";
+
+            // int bytes_read = read(fd, buf, 31);
+            // printf(buf);
+            if(strncmp(input, "2", 1) == 0)
+            {
+                write(fd, make_room_msg.c_str(), make_room_msg.length());
+            }
+        }
+
+        void quitGame()
+        {
+            shutdown(fd, SHUT_RDWR);
+            close(fd);
+            printf("Gracz %s opuscil gre.\n", name.c_str());
         }
 };
+
+
 
 int main(int argc, char **argv)
 {
     int servSock = socket_bind_listen(argc, argv, SOCK_STREAM);
-    char a[] = "Witaj graczu! Podaj imie: \n";
+    char welcomeMsg[] = "Witaj graczu! Podaj imie: \n";
 
     std::vector<Player> players;
     pollfd servPfd = {servSock, POLLIN, 0};
@@ -76,10 +95,10 @@ int main(int argc, char **argv)
                 exit(1);
             }
             printf("Nowy gracz dolaczyl do gry.\n");
-            write(player_fd, a, sizeof(a));
+            write(player_fd, welcomeMsg, sizeof(welcomeMsg));
             Player newPlayer;
             newPlayer.fd = player_fd;
-            newPlayer.pfd = {player_fd, POLLIN|POLLOUT, 0};
+            newPlayer.pfd = {player_fd, POLLIN | POLLOUT, 0};
             players.push_back(newPlayer);
         }
 
@@ -91,35 +110,26 @@ int main(int argc, char **argv)
                 {
                     players[i].askName();
                     printf("Nowy Gracz: %s\n", players[i].name.c_str());
+                    players[i].sendMenu();
                 }
                 else
                 {
-                    char buffer[128]{};
+                    char buffer[16]{};
                     ssize_t bytes_read = read(players[i].fd, buffer, sizeof(buffer));
-                    if (bytes_read <= 0)
+                    if (bytes_read == 0)
                     {
-                        if (bytes_read == 0)
-                        {
-                            printf("Gracz %s opuscil gre.\n", players[i].name.c_str());
-                        }
-                        close(players[i].fd);
+                        players[i].quitGame();
                         players.erase(players.begin() + i);
                         --i;
                     }
-                    else
-                    {
-                       
-                        buffer[bytes_read] = '\0'; // Null-terminate the string
-                        printf("Wiadomosc od %s: %s\n", players[i].name.c_str(), buffer);
+                    else{
+                        players[i].menuHandler(buffer);
                     }
-                }
-
-                if((pfds[i].revents & POLLOUT) && players[i].nameAsked)
-                {
-                    players[i].sendMenu();
-                    players[i].pfd.events &= ~POLLOUT;
+                    
+                    
                 }
             }
+            
         }
     }
 }
