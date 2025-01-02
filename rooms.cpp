@@ -9,23 +9,20 @@
 
 using namespace std;
 
-
+class Player; // forward declaration
 
 class Room
 {
-    public:
-        unsigned int room_id;
-        string name;
-        static unsigned int next_room_id;
-        vector<Player> players_in_room;
+public:
+    unsigned int room_id;
+    string name;
+    static unsigned int next_room_id;
+    // Store Player pointers (forward-declared above)
+    vector<Player*> players_in_room;
 
-    Room()
-    {
-        cout << "Podaj nazwę pokoju: ";
-        cin >> name;
-        room_id = next_room_id++;
-        cout << "Stworzono pokój o nazwie " + name << " z ID " << room_id << endl;
-    }
+    Room();
+    void addPlayerToRoom(Player* player_to_add);
+    void listPlayers();
 };
 
 vector<Room> rooms;
@@ -79,7 +76,7 @@ class Player
             write(fd, message.c_str(), message.length());
         }
 
-        void menuHandler(char input[16])
+        void menuHandler(char input[16], vector<Room>& local_rooms)
         {
 
             string make_room_msg = "Podaj nazwę pokoju (max 16 znaków): ";
@@ -89,8 +86,18 @@ class Player
             // printf(buf);
             if(strncmp(input, "1", 1) == 0)
             {
+                string room_choice_msg = "Dołącz do pokoju nr: ";
+                char choice[8]{};
                 cout << "Gracz " + name + "chce dołączyć do pokoju." << endl; 
-                printRooms(fd);
+                write(fd, room_choice_msg.c_str(), room_choice_msg.length());
+                int bytes_read = read(fd, choice, 7);
+                choice[bytes_read] = '\0';
+                if(strncmp(choice, "1", 1) == 0)
+                {
+                    local_rooms[0].addPlayerToRoom(this);
+
+                }
+                
             }
             else if(strncmp(input, "2", 1) == 0)
             {
@@ -109,6 +116,35 @@ class Player
             printf("Gracz %s opuscil gre.\n", name.c_str());
         }
 };
+
+Room::Room()
+{
+    cout << "Podaj nazwę pokoju: ";
+    cin >> name;
+    room_id = next_room_id++;
+    cout << "Stworzono pokój o nazwie " + name << " z ID " << room_id << endl;
+}
+
+void Room::addPlayerToRoom(Player* player_to_add)
+{
+    players_in_room.push_back(player_to_add);
+    cout << "dodadno gracza do pokoju" << endl;
+    player_to_add->room_id = room_id;
+
+    for (const auto &player : players_in_room)
+    {
+        cout << "Player name: " << player->name << ", Player ID: " << player->fd << endl;
+    }
+}
+
+void Room::listPlayers()
+{
+    cout << "Players in room " << name << " (ID: " << room_id << "):" << endl;
+    for (const auto &player : players_in_room)
+    {
+        cout << "Player name: " << player->name << ", Player ID: " << player->fd << endl;
+    }
+}
 
 
 
@@ -147,11 +183,12 @@ int main(int argc, char **argv)
         player.sendMenu();
         int bytes_read = read(player.fd, choice, 15);
         choice[bytes_read] = '\0';
-        player.menuHandler(choice);
+        player.menuHandler(choice, rooms);
     }
 
-    while(1)
+    for(auto room : rooms)
     {
-        
+        room.listPlayers();
     }
+
 }
