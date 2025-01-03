@@ -1,4 +1,5 @@
 #include "server_common.hpp"
+#include "room.hpp"
 #include <unistd.h> 
 #include <string>
 #include <iostream>
@@ -8,22 +9,6 @@
 #include <unistd.h> // for read and write
 
 using namespace std;
-
-class Player; // forward declaration
-
-class Room
-{
-public:
-    unsigned int room_id;
-    string name;
-    static unsigned int next_room_id;
-    // Store Player pointers (forward-declared above)
-    vector<Player*> players_in_room;
-
-    Room();
-    void addPlayerToRoom(Player* player_to_add);
-    void listPlayers();
-};
 
 vector<Room> rooms;
 unsigned int Room::next_room_id = 1;
@@ -84,20 +69,32 @@ class Player
             string unknown_command = "Nieznana operacja";
             // int bytes_read = read(fd, buf, 31);
             // printf(buf);
+            // cout << "Next room ID: " << Room::next_room_id << endl;
+            
             if(strncmp(input, "1", 1) == 0)
             {
-                string room_choice_msg = "Dołącz do pokoju nr: ";
-                char choice[8]{};
-                cout << "Gracz " + name + "chce dołączyć do pokoju." << endl; 
-                write(fd, room_choice_msg.c_str(), room_choice_msg.length());
-                int bytes_read = read(fd, choice, 7);
-                choice[bytes_read] = '\0';
-                if(strncmp(choice, "1", 1) == 0)
+                while(1)
                 {
-                    local_rooms[0].addPlayerToRoom(this);
-
+                    printRooms(fd);
+                    string room_choice_msg = "Dołącz do pokoju nr: ";
+                    char choice[8]{};
+                    name.erase(name.find_last_not_of("\n") + 1);
+                    cout << "Gracz " + name + " chce dołączyć do pokoju." << endl;
+                    write(fd, room_choice_msg.c_str(), room_choice_msg.length());
+                    int bytes_read = read(fd, choice, 7);
+                    choice[bytes_read] = '\0';
+                    unsigned int room_number = atoi(choice);
+                    if (room_number < 1 || room_number >= Room::next_room_id)
+                    {
+                        string error_msg = "Nieprawidłowy numer pokoju. Wybierz numer od 1 do " + to_string(Room::next_room_id - 1) + ".\n";
+                        write(fd, error_msg.c_str(), error_msg.length());
+                    }
+                    else
+                    {
+                        rooms[room_number-1].addPlayerToRoom(this);
+                        break;
+                    } 
                 }
-                
             }
             else if(strncmp(input, "2", 1) == 0)
             {
@@ -137,16 +134,14 @@ void Room::addPlayerToRoom(Player* player_to_add)
     }
 }
 
-void Room::listPlayers()
+void Room::listPlayers() const
 {
     cout << "Players in room " << name << " (ID: " << room_id << "):" << endl;
     for (const auto &player : players_in_room)
     {
-        cout << "Player name: " << player->name << ", Player ID: " << player->fd << endl;
+        cout << "\t Player name: " << player->name << ", Player ID: " << player->fd << endl;
     }
 }
-
-
 
 
 int main(int argc, char **argv)
@@ -174,7 +169,6 @@ int main(int argc, char **argv)
     players.emplace_back(fd2);
     players.emplace_back(fd3);
 
-    cout << "PETLA" << endl;
     for(auto &player : players)
     {
         char choice[16]{};
