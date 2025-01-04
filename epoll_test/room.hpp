@@ -14,7 +14,8 @@ public:
     std::string name;
     std::vector<Player*> players_in_room;
 
-    Room();
+    //Room();
     void addPlayerToRoom(Player* player_to_add);
     void listPlayers() const;
+    void removePlayerFromRoom(Player* player_to_remove);
 };

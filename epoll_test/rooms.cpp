@@ -18,13 +18,15 @@ unsigned int Room::next_room_id = 1;
 
 void printRooms(int fd)
 {
+    unsigned short int iterator = 1;
     for (const auto &room : rooms)
     {
         cout << "Room ID: " << room.room_id << ", Name: " << room.name << endl;
         if(fd > 2)
         {
-            string msg = to_string(room.room_id) + " name: " + room.name + "\n";
+            string msg = to_string(iterator) + " name: " + room.name + "\n";
             write(fd, msg.c_str(), msg.length());
+            iterator++;
         }
     }
    
@@ -34,7 +36,8 @@ enum class PlayerState {
     AwaitingName,
     AwaitingMenu,
     ChoosingRoom,
-    CreatingRoom
+    CreatingRoom,
+    InRoom
 };
 
 class Player
@@ -92,15 +95,15 @@ public:
                     else
                     {
                         local_rooms[room_number-1].addPlayerToRoom(this);
-                        sendMenu();
-                        state = PlayerState::AwaitingMenu;
+                        // sendMenu(); // Usuń tę linię, aby nie wysyłać menu po dołączeniu do pokoju
+                        state = PlayerState::InRoom;
                     }
                 }
                 break;
 
             case PlayerState::CreatingRoom:
                 {
-                    this->name = input;
+                    //this->name = input;
                     local_rooms.emplace_back();
                     local_rooms.back().name = input;
                     local_rooms.back().room_id = Room::next_room_id++;
@@ -109,6 +112,86 @@ public:
                     state = PlayerState::AwaitingMenu;
                 }
                 break;
+            
+            case PlayerState::InRoom:
+                {
+                    if (input == "/leave") {
+                        leaveRoom(local_rooms);
+                    } else {
+                        sendMessageToRoom(input, local_rooms);
+                    }
+                }
+                break;
+        }
+    }
+
+    void leaveRoom(vector<Room>& local_rooms)
+    {
+        // Znajdź pokój, do którego gracz należy
+        Room* currentRoom = nullptr;
+        for (auto &room : local_rooms)
+        {
+            if (room.room_id == room_id)
+            {
+                currentRoom = &room;
+                break;
+            }
+        }
+
+        if (currentRoom)
+        {
+            // Usuń gracza z pokoju
+            currentRoom->removePlayerFromRoom(this);
+
+            // Powiadomienie innych graczy w pokoju
+            string leaveMsg = name + " opuścił pokój.\n";
+            for (const auto& player : currentRoom->players_in_room)
+            {
+                write(player->fd, leaveMsg.c_str(), leaveMsg.length());
+            }
+
+            // Zmień stan gracza na AwaitingMenu
+            state = PlayerState::AwaitingMenu;
+            sendMenu();
+        }
+        else
+        {
+            // Pokój nie został znaleziony
+            string errorMsg = "Błąd: Nie jesteś w żadnym pokoju.\n";
+            write(fd, errorMsg.c_str(), errorMsg.length());
+        }
+    }
+
+    void sendMessageToRoom(const string& message, vector<Room>& local_rooms)
+    {
+        // Find the room the player is currently in
+        Room* currentRoom = nullptr;
+        for (auto &room : local_rooms)
+        {
+            if (room.room_id == room_id)
+            {
+                currentRoom = &room;
+                break;
+            }
+        }
+
+        if (currentRoom)
+        {
+            // Format the message with the player's name
+            string formattedMsg = this->name + ": " + message + "\n";
+
+            // Broadcast the message to all players in the room
+            for (const auto& player : currentRoom->players_in_room)
+            {
+                if(player->fd == fd) continue;
+                write(player->fd, formattedMsg.c_str(), formattedMsg.length());
+            }
+        }
+        else
+        {
+            // Handle case where room is not found
+            string errorMsg = "Błąd: Nie znaleziono pokoju.\n";
+            write(fd, errorMsg.c_str(), errorMsg.length());
         }
     }
 
@@ -142,13 +225,13 @@ public:
     }
 };
 
-Room::Room()
-{
-    cout << "Podaj nazwę pokoju: ";
-    cin >> name;
-    room_id = next_room_id++;
-    cout << "Stworzono pokój o nazwie " + name << " z ID " << room_id << endl;
-}
+// Room::Room()
+// {
+//     cout << "Podaj nazwę pokoju: ";
+//     cin >> name;
+//     room_id = next_room_id++;
+//     cout << "Stworzono pokój o nazwie " + name << " z ID " << room_id << endl;
+// }
 
 void Room::addPlayerToRoom(Player* player_to_add)
 {
@@ -156,10 +239,19 @@ void Room::addPlayerToRoom(Player* player_to_add)
     cout << "dodadno gracza do pokoju" << endl;
     player_to_add->room_id = room_id;
 
-    for (const auto &player : players_in_room)
+    // Broadcast join message to all players in the room except the one joining
+    string joinMsg = player_to_add->name + " dołączył do pokoju.\n";
+    for (const auto& player : players_in_room)
     {
-        cout << "Player name: " << player->name << ", Player ID: " << player->fd << endl;
+        if (player->fd != player_to_add->fd)
+        {
+            write(player->fd, joinMsg.c_str(), joinMsg.length());
+        }
     }
+
+    // Optionally, notify the joining player of existing members
+    string welcomeMsg = "Witaj w pokoju " + name + "!\n";
+    write(player_to_add->fd, welcomeMsg.c_str(), welcomeMsg.length());
 }
 
 void Room::listPlayers() const
@@ -168,6 +260,33 @@ void Room::listPlayers() const
     for (const auto &player : players_in_room)
     {
         cout << "\t Player name: " << player->name << ", Player ID: " << player->fd << endl;
+    }
+}
+
+void Room::removePlayerFromRoom(Player* player_to_remove)
+{
+    // Znajdź i usuń gracza z listy uczestników
+    auto it = std::find(players_in_room.begin(), players_in_room.end(), player_to_remove);
+    if (it != players_in_room.end())
+    {
+        players_in_room.erase(it);
+        cout << "Gracz " << player_to_remove->name << " został usunięty z pokoju " << name << "." << endl;
+    }
+
+    // Jeśli pokój jest pusty, opcjonalnie usuń pokój z listy
+    if (players_in_room.empty())
+    {
+        // Znajdź indeks pokoju w globalnej liście
+        extern vector<Room> rooms; // Upewnij się, że 'rooms' jest zadeklarowane jako extern
+        auto room_it = std::find_if(rooms.begin(), rooms.end(),
+            [this](const Room& r) { return r.room_id == this->room_id; });
+
+        if (room_it != rooms.end())
+        {
+            cout << "Pokój " << name << " jest pusty i zostanie usunięty." << endl;
+            rooms.erase(room_it);
+            Room::next_room_id--;
+        }
     }
 }
 
@@ -183,15 +302,7 @@ int main(int argc, char **argv)
     
     vector<Player> players;
 
-    rooms.emplace_back(); // tworzy obiekt Room i od razu dodaje go do wektora
-    rooms.emplace_back();
-    rooms.emplace_back();
-
-    // cout << "ID pokoju 1: " << rooms[0].room_id << endl;
-    // cout << "ID pokoju 2: " << rooms[1].room_id << endl;
-    // cout << "ID pokoju 3: " << rooms[2].room_id << endl;
-
-    printRooms(0);
+    //printRooms(0);
 
     int server_fd = socket_bind_listen(argc, argv, SOCK_STREAM);
 
