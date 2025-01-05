@@ -122,7 +122,9 @@ public:
                     {
                         if (room_in && room_in->getLeader() == this)
                         {
-                            sendMessageToRoom("ZACZYNAMY za 3 2 1!", local_rooms);
+                            sendMessageToRoom("ZACZYNAMY za 3 2 1!", local_rooms, true);
+
+
                         }
                         else
                         {
@@ -175,7 +177,7 @@ public:
         }
     }
 
-    void sendMessageToRoom(const string& message, vector<Room>& local_rooms)
+    void sendMessageToRoom(const string& message, vector<Room>& local_rooms, bool server_notification = false)
     {
         // Find the room the player is currently in
         Room* currentRoom = nullptr;
@@ -190,13 +192,22 @@ public:
 
         if (currentRoom)
         {
+            string formattedMsg;
             // Format the message with the player's name
-            string formattedMsg = this->name + ": " + message + "\n";
+            if(!server_notification)  //send a message to the room's chat
+            {
+                formattedMsg = this->name + ": " + message + "\n";
+            }
+            else
+            {
+                 formattedMsg = message + "\n";
+            }
+            
 
             // Broadcast the message to all players in the room
             for (const auto& player : currentRoom->players_in_room)
             {
-                if(player->fd == fd) continue;
+                if(player->fd == fd && !server_notification) continue;
                 write(player->fd, formattedMsg.c_str(), formattedMsg.length());
             }
         }
