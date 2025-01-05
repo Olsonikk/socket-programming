@@ -49,7 +49,8 @@ public:
     pollfd pfd;
     PlayerState state = PlayerState::AwaitingName; // Initialize to AwaitingName
     string readBuffer; // Buffer to accumulate incoming data
-    bool nameAsked = false;
+    Room* room_in = nullptr;
+    
 
     Player(int newFd)
     {
@@ -74,7 +75,6 @@ public:
         {
             case PlayerState::AwaitingName:
                 name = input;
-                nameAsked = true;
                 printf("Nowy Gracz: %s\n", name.c_str());
                 sendMenu();
                 state = PlayerState::AwaitingMenu;
@@ -107,7 +107,7 @@ public:
                     local_rooms.emplace_back();
                     local_rooms.back().name = input;
                     local_rooms.back().room_id = Room::next_room_id++;
-                    write(fd, "Pokój został utworzony.\n", 24);
+                    write(fd, "Pokój został utworzony.\n", 27);
                     sendMenu();
                     state = PlayerState::AwaitingMenu;
                 }
@@ -117,7 +117,20 @@ public:
                 {
                     if (input == "/leave") {
                         leaveRoom(local_rooms);
-                    } else {
+                    }
+                    else if (input == "/start")
+                    {
+                        if (room_in && room_in->getLeader() == this)
+                        {
+                            sendMessageToRoom("ZACZYNAMY za 3 2 1!", local_rooms);
+                        }
+                        else
+                        {
+                            string errorMsg = "Tylko lider może rozpocząć grę.\n";
+                            write(fd, errorMsg.c_str(), errorMsg.length());
+                        }
+                    }
+                    else {
                         sendMessageToRoom(input, local_rooms);
                     }
                 }
@@ -225,20 +238,29 @@ public:
     }
 };
 
-// Room::Room()
-// {
-//     cout << "Podaj nazwę pokoju: ";
-//     cin >> name;
-//     room_id = next_room_id++;
-//     cout << "Stworzono pokój o nazwie " + name << " z ID " << room_id << endl;
-// }
+
+void Room::setLeader(Player* newLeader)
+{
+    leader = newLeader;
+    string leaderMsg = leader->name + " został(a) wybrany(a) na lidera pokoju.\n";
+    cout << leaderMsg << endl;
+    for (const auto& player : players_in_room)
+    {
+        write(player->fd, leaderMsg.c_str(), leaderMsg.length());
+    }
+}
+
+Player* Room::getLeader() const
+{
+    return leader;
+}
 
 void Room::addPlayerToRoom(Player* player_to_add)
 {
     players_in_room.push_back(player_to_add);
-    cout << "dodadno gracza do pokoju" << endl;
+    cout << "dodano gracza do pokoju" << endl;
     player_to_add->room_id = room_id;
-
+    player_to_add->room_in = this;
     // Broadcast join message to all players in the room except the one joining
     string joinMsg = player_to_add->name + " dołączył do pokoju.\n";
     for (const auto& player : players_in_room)
@@ -252,6 +274,12 @@ void Room::addPlayerToRoom(Player* player_to_add)
     // Optionally, notify the joining player of existing members
     string welcomeMsg = "Witaj w pokoju " + name + "!\n";
     write(player_to_add->fd, welcomeMsg.c_str(), welcomeMsg.length());
+
+    // Ustaw lidera jeśli to pierwszy gracz
+    if (players_in_room.size() == 1)
+    {
+        setLeader(player_to_add);
+    }
 }
 
 void Room::listPlayers() const
@@ -259,7 +287,14 @@ void Room::listPlayers() const
     cout << "Players in room " << name << " (ID: " << room_id << "):" << endl;
     for (const auto &player : players_in_room)
     {
-        cout << "\t Player name: " << player->name << ", Player ID: " << player->fd << endl;
+        if (player == leader)
+        {
+            cout << "\t Player name: " << player->name << " (lider), Player ID: " << player->fd << endl;
+        }
+        else
+        {
+            cout << "\t Player name: " << player->name << ", Player ID: " << player->fd << endl;
+        }
     }
 }
 
@@ -271,6 +306,19 @@ void Room::removePlayerFromRoom(Player* player_to_remove)
     {
         players_in_room.erase(it);
         cout << "Gracz " << player_to_remove->name << " został usunięty z pokoju " << name << "." << endl;
+    }
+
+    // Jeśli usunięto lidera, ustaw nowego lidera
+    if (player_to_remove == leader)
+    {
+        if (!players_in_room.empty())
+        {
+            setLeader(players_in_room.front());
+        }
+        else
+        {
+            leader = nullptr;
+        }
     }
 
     // Jeśli pokój jest pusty, opcjonalnie usuń pokój z listy

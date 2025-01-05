@@ -13,9 +13,13 @@ public:
     unsigned int room_id;
     std::string name;
     std::vector<Player*> players_in_room;
+    Player* leader = nullptr; // Dodaj ten wskaźnik
 
-    //Room();
     void addPlayerToRoom(Player* player_to_add);
     void listPlayers() const;
     void removePlayerFromRoom(Player* player_to_remove);
+
+    // Dodaj metody do ustawiania i pobierania lidera
+    void setLeader(Player* newLeader);
+    Player* getLeader() const;
 };
