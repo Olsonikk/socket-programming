@@ -1,5 +1,6 @@
 #include "server_common.hpp"
 #include "room.hpp"
+#include "question.hpp"
 #include <unistd.h> 
 #include <string>
 #include <iostream>
@@ -123,7 +124,9 @@ public:
                         if (room_in && room_in->getLeader() == this)
                         {
                             sendMessageToRoom("ZACZYNAMY za 3 2 1!", local_rooms, true);
-
+                            Question q;
+                            int correct = q();
+                            cout << to_string(correct) << endl;
 
                         }
                         else
