@@ -245,9 +245,15 @@ public:
     {
         string make_room_msg = "Podaj nazwę pokoju (max 16 znaków): ";
         string unknown_command = "Nieznana operacja\n";
-
+        string no_rooms_msg = "Brak pokoi\n";
         if(input == "1")
         {
+            if(Room::next_room_id <= 1) //dodac sprawdzanie czy są wolne
+            {
+                write(fd, no_rooms_msg.c_str(), no_rooms_msg.length());
+                state = PlayerState::AwaitingMenu;
+                return;
+            }
             state = PlayerState::ChoosingRoom;
             printRooms(fd); // Display the list of rooms to the client
             write(fd, "Dołącz do pokoju nr: ", 22);
@@ -318,19 +324,22 @@ void Room::addPlayerToRoom(Player* player_to_add)
 
 void Room::listPlayers(int fd) const
 {
-    string list = "Players in room " + name + " (ID: " + to_string(room_id) + "):\n";
+    // Zmienna do przechowywania pojedynczej linii wiadomości
+    string line = "Players in room " + name + " (ID: " + to_string(room_id) + "):\n";
+    write(fd, line.c_str(), line.length());
+
     for (const auto &player : players_in_room)
     {
         if (player == leader)
         {
-            list += "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
+            line = "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
         }
         else
         {
-            list += "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
+            line = "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
         }
+        write(fd, line.c_str(), line.length());
     }
-    write(fd, list.c_str(), list.length());
 }
 
 void Room::removePlayerFromRoom(Player* player_to_remove)
