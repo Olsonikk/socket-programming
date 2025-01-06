@@ -108,9 +108,15 @@ public:
                     local_rooms.emplace_back();
                     local_rooms.back().name = input;
                     local_rooms.back().room_id = Room::next_room_id++;
-                    write(fd, "Pokój został utworzony.\n", 27);
-                    sendMenu();
-                    state = PlayerState::AwaitingMenu;
+                    
+                    // Dodanie gracza do nowo utworzonego pokoju
+                    local_rooms.back().addPlayerToRoom(this);
+                    
+                    // Powiadomienie gracza o utworzeniu i dołączeniu do pokoju
+                    write(fd, "Pokój został utworzony i dołączono do niego.\n", 50);
+                    
+                    // Zmiana stanu na InRoom
+                    state = PlayerState::InRoom;
                 }
                 break;
             
@@ -132,6 +138,19 @@ public:
                         else
                         {
                             string errorMsg = "Tylko lider może rozpocząć grę.\n";
+                            write(fd, errorMsg.c_str(), errorMsg.length());
+                        }
+                    }
+                    else if (input == "/listrooms") printRooms(fd);
+                    else if (input == "/listplayers") 
+                    {
+                        if (room_in != nullptr)
+                        {
+                            room_in->listPlayers(fd);
+                        }
+                        else
+                        {
+                            string errorMsg = "Nie jesteś w żadnym pokoju.\n";
                             write(fd, errorMsg.c_str(), errorMsg.length());
                         }
                     }
@@ -296,20 +315,21 @@ void Room::addPlayerToRoom(Player* player_to_add)
     }
 }
 
-void Room::listPlayers() const
+void Room::listPlayers(int fd) const
 {
-    cout << "Players in room " << name << " (ID: " << room_id << "):" << endl;
+    string list = "Players in room " + name + " (ID: " + to_string(room_id) + "):\n";
     for (const auto &player : players_in_room)
     {
         if (player == leader)
         {
-            cout << "\t Player name: " << player->name << " (lider), Player ID: " << player->fd << endl;
+            list += "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
         }
         else
         {
-            cout << "\t Player name: " << player->name << ", Player ID: " << player->fd << endl;
+            list += "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
         }
     }
+    write(fd, list.c_str(), list.length());
 }
 
 void Room::removePlayerFromRoom(Player* player_to_remove)

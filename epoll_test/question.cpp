@@ -7,6 +7,7 @@ Question::Question()
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     generateQuestion();
     generateOptions();
+    //doddac zmienną liczbę pytań
 }
 
 // Getters
@@ -24,10 +25,10 @@ void Question::generateQuestion()
     operation = getRandomOperation();
 
     // Zapewnienie, że wynik odejmowania nie będzie ujemny
-    if (operation == '-' && operand1 < operand2)
-    {
-        std::swap(operand1, operand2);
-    }
+    // if (operation == '-' && operand1 < operand2)
+    // {
+    //     std::swap(operand1, operand2);
+    // }
 
     // Tworzenie tekstu pytania
     text = std::to_string(operand1) + " " + operation + " " + std::to_string(operand2) + " = ?";

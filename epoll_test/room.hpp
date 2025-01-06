@@ -16,7 +16,7 @@ public:
     Player* leader = nullptr; // Dodaj ten wskaźnik
 
     void addPlayerToRoom(Player* player_to_add);
-    void listPlayers() const;
+    void listPlayers(int fd) const;
     void removePlayerFromRoom(Player* player_to_remove);
 
     // Dodaj metody do ustawiania i pobierania lidera
