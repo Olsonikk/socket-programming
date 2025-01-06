@@ -66,7 +66,7 @@ public:
 
     void sendMenu()
     {
-        string message = "Wybierz opcje: \n 1.Dołącz do pokoju. \n 2.Stwórz nowy pokój. \n";
+        string message = "Wybierz opcje: \n 1.Dołącz do pokoju. \n 2.Stwórz nowy pokój. \n 3. Lista Pokoi. \n";
         write(fd, message.c_str(), message.length());
     }
 
@@ -257,6 +257,7 @@ public:
             state = PlayerState::CreatingRoom;
             write(fd, make_room_msg.c_str(), make_room_msg.length());
         }
+        else if(input == "3") printRooms(fd);
         else
         {
             write(fd, unknown_command.c_str(), unknown_command.length());
