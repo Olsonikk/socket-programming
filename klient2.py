@@ -3,6 +3,9 @@ from tkinter import simpledialog
 import serwerRaw as Serwer
 import time
 import socket
+import select
+import threading
+import queue
 
 class MathQuizClient:
     def __init__(self, root, server_address=('127.0.0.1', 2222)):
@@ -13,9 +16,11 @@ class MathQuizClient:
         self.room = None
         self.client_socket = None
         self.server_address = server_address
+        self.message_queue = queue.Queue()
 
         self.flag = True
         self.connect_to_server()
+
 
 
         self.create_nick_entry()
@@ -85,43 +90,14 @@ class MathQuizClient:
     def submit_create_room(self):
         if self.room_entry.get() in Serwer.send("RoomList"):
             self.RoomExistError.config(text="This room already exist!")
-            #time.sleep(2)
-            #self.create_room()
         else:
-            #Serwer.send(["CreateRoom", self.room_entry.get()])
-            #print(Serwer.send("RoomList"))
             self.room = self.room_entry.get()
             self.client_socket.sendall(self.room.encode('utf-8') + b'\n')
+            time.sleep(0.5)
             data = self.client_socket.recv(1024).decode()
             print(data)
-            self.client_socket.sendall('1'.encode('utf-8') + b'\n')
-            data = self.client_socket.recv(1024).decode()
-            data = data.splitlines()[0].split(" ", 2)
-            print(data)
-            if data[2]==self.room:
-                    print('jestem tutaj')
-                    print(data[0])
-                    self.client_socket.sendall(data[0].encode('utf-8') + b'\n')
-                    data = self.client_socket.recv(1024).decode()
-                    print(data)
-                    data = self.client_socket.recv(1024).decode()
-                    print(data)
-                    self.choose_room_option()
-            else:
-                print("QGYHUIJKOLP")
-                data = self.client_socket.recv(1024).decode()
-                print(data)
-                print(data.splitlines())
-                for line in data.splitlines():
-                    parts = line.split(" ", 2)
-                    print(parts)
-                    if parts[2]==self.room:
-                        self.client_socket.sendall(parts[0].encode('utf-8') + b'\n')
-                        data = self.client_socket.recv(1024).decode()
-                        print(data)
-                        
-                self.choose_room_option()
-                #self.show_room_menu()
+            self.show_room_menu()
+			
 
     def show_available_rooms(self):
         """Pokazuje dostępne pokoje"""
@@ -174,6 +150,10 @@ class MathQuizClient:
         for widget in self.root.winfo_children():
             widget.destroy()
 
+        self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        self.listen_thread.daemon = True  # Wątek zakończy się wraz z zamknięciem programu
+        self.listen_thread.start()
+        
         # Ustawienie proporcji kolumn i wierszy
         self.root.grid_columnconfigure(0, weight=1)  # Kolumna 0 (frame1) zajmuje resztę przestrzeni
         self.root.grid_columnconfigure(1, weight=0)  # Kolumna 1 (frame2) ma stałą szerokość
@@ -196,11 +176,6 @@ class MathQuizClient:
         tk.Label(frame1, text=f"Welcome to {self.room}!", font=("Arial", 20)).grid(row=0, column=0, pady=(50,10))
         tk.Button(frame1, text="Start Quiz", command=self.start_quiz).grid(row=1, column=0, pady=5)
 
-        #######################################
-
-
-
-        #######################################
         #output
         #tk.Text(frame1, width=40, height=10).grid(row=2, column=0)
         self.chat_display = tk.Text(frame1, width=40, height=10, state=tk.DISABLED)  # Nie edytowalne pole
@@ -213,6 +188,7 @@ class MathQuizClient:
 
         # Pokazuje listę graczy w pokoju
         self.show_players_in_room()
+        self.update_chat()
 
     def show_players_in_room(self):
         """Wyświetla listę graczy w danym pokoju"""
@@ -230,7 +206,27 @@ class MathQuizClient:
         players = Serwer.send("PlayerList")
         for i, player in enumerate(players):
             tk.Label(frame2, text=player + ": 2137pkt", font=("Arial", 14)).grid(row=1 + i, column=0, sticky="ew", padx=5, pady=5)
-
+    def listen_for_messages(self):
+        """Nasłuchiwanie wiadomości od serwera w tle"""
+        while True:
+            ready_to_read, _, _ = select.select([self.client_socket], [], [], 0.5)
+            if ready_to_read:
+                message = self.client_socket.recv(1024).decode()
+                print(f"Received message: {message}")
+                if message:
+                    self.message_queue.put(message)
+    def update_chat(self):
+        """Funkcja sprawdzająca, czy w kolejce są nowe wiadomości"""
+        try:
+            while not self.message_queue.empty():
+                message = self.message_queue.get_nowait()
+                self.chat_display.config(state=tk.NORMAL)
+                self.chat_display.insert(tk.END, f"{message}\n")
+                self.chat_display.config(state=tk.DISABLED)
+        except queue.Empty:
+            pass
+        self.root.after(100, self.update_chat)
+        
     def chat(self):
 
         #######################################
@@ -245,7 +241,7 @@ class MathQuizClient:
             self.chat_display.config(state=tk.NORMAL)  # Umożliwienie edytowania
             self.chat_display.insert(tk.END, f"You: {message}\n")  # Dodanie wiadomości
             self.chat_display.config(state=tk.DISABLED)  # Zablokowanie edytowania
-
+            self.client_socket.sendall(message.encode() + b'\n')
             # Wyczyść pole tekstowe po wysłaniu wiadomości
             self.message_input.delete("1.0", tk.END)
 
