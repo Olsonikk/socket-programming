@@ -23,13 +23,7 @@ void Question::generateQuestion()
     operand1 = std::rand() % 101; // 0-100
     operand2 = std::rand() % 101; // 0-100
     operation = getRandomOperation();
-
-    // Zapewnienie, że wynik odejmowania nie będzie ujemny
-    // if (operation == '-' && operand1 < operand2)
-    // {
-    //     std::swap(operand1, operand2);
-    // }
-
+    
     // Tworzenie tekstu pytania
     text = std::to_string(operand1) + " " + operation + " " + std::to_string(operand2) + " = ?";
 }

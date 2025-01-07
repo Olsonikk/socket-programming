@@ -11,6 +11,7 @@
 #include <fcntl.h> // Add this include for fcntl
 #include <sys/epoll.h> // Ensure epoll is included
 #include <algorithm>
+#include <list>
 
 using namespace std;
 
@@ -324,22 +325,26 @@ void Room::addPlayerToRoom(Player* player_to_add)
 
 void Room::listPlayers(int fd) const
 {
-    // Zmienna do przechowywania pojedynczej linii wiadomości
-    string line = "Players in room " + name + " (ID: " + to_string(room_id) + "):\n";
-    write(fd, line.c_str(), line.length());
+    string message;
+    // Pre-allocate some space to avoid repeated resizing
+
+    message += "Players in room " + this->name + " (ID: " + to_string(room_id) + "):\n";
 
     for (const auto &player : players_in_room)
     {
         if (player == leader)
         {
-            line = "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
+            // message += "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
+            message += "Player name:  (lider), Player ID: " + player->name + "\n";
         }
         else
         {
-            line = "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
+            //message += "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
+            message += "Player name:  , Player ID: " + player->name + "\n";
         }
-        write(fd, line.c_str(), line.length());
     }
+
+    write(fd, message.c_str(), message.size());
 }
 
 void Room::removePlayerFromRoom(Player* player_to_remove)
@@ -392,7 +397,7 @@ int setNonBlocking(int fd) {
 int main(int argc, char **argv)
 {
     
-    vector<Player> players;
+    list<Player> players;
 
     //printRooms(0);
 
