@@ -363,7 +363,7 @@ void Room::listPlayers(int fd) const
             message += "Player name:  , Player ID: " + player->name + "\n";
         }
     }
-
+    message += "END\n";
     write(fd, message.c_str(), message.size());
 }
 
