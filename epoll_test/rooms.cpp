@@ -15,8 +15,13 @@
 
 using namespace std;
 
+list<Player> players; // Moved players to global scope
+
 vector<Room> rooms;
 unsigned int Room::next_room_id = 1;
+
+// Helper function to check if a name is taken
+
 
 void printRooms(int fd)
 {
@@ -71,15 +76,30 @@ public:
         write(fd, message.c_str(), message.length());
     }
 
+    bool isNameTaken(const string& name) {
+    for (const auto& player : players) {
+        if (player.name == name) {
+            return true;
+        }
+    }
+    return false;
+    }
+
     void handleInput(const string& input, vector<Room>& local_rooms)
     {
         switch(state)
         {
             case PlayerState::AwaitingName:
-                name = input;
-                printf("Nowy Gracz: %s\n", name.c_str());
-                sendMenu();
-                state = PlayerState::AwaitingMenu;
+                if (isNameTaken(input)) {
+                    string error_msg = "Nazwa użytkownika jest już zajęta. Podaj inną nazwę: ";
+                    write(fd, error_msg.c_str(), error_msg.length());
+                }
+                else {
+                    name = input;
+                    printf("Nowy Gracz: %s\n", name.c_str());
+                    sendMenu();
+                    state = PlayerState::AwaitingMenu;
+                }
                 break;
 
             case PlayerState::AwaitingMenu:
@@ -397,7 +417,6 @@ int setNonBlocking(int fd) {
 int main(int argc, char **argv)
 {
     
-    list<Player> players;
 
     //printRooms(0);
 
