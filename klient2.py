@@ -21,7 +21,10 @@ class MathQuizClient:
         self.flag = True
         self.connect_to_server()
 
-
+        self.listenForChat = False
+        self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        self.listen_thread.daemon = True
+        self.listen_thread.start()
 
         self.create_nick_entry()
     def connect_to_server(self):
@@ -35,8 +38,9 @@ class MathQuizClient:
             self.root.quit()
     def create_nick_entry(self):
     
-        data = self.client_socket.recv(1024).decode()
-        print(data)
+        if self.nick==None:
+            data = self.client_socket.recv(1024).decode()
+            print(data)
         for widget in self.root.winfo_children():
             widget.destroy()
 
@@ -47,6 +51,12 @@ class MathQuizClient:
 
         tk.Button(self.root, text="Submit", command=self.submit_nick).pack(pady=10)
         self.nick_entry.focus()
+        
+        print(self.nick)
+        if self.nick:
+            self.nick_entry.insert(tk.END, self.nick)
+            tk.Label(self.root, text="Ten nick jest juz zajety!", font=("Arial", 16)).pack(pady=20)
+            
 
     def submit_nick(self):
         #Serwer.send(["CreatePlayer", self.nick_entry.get()])
@@ -56,7 +66,11 @@ class MathQuizClient:
             self.client_socket.sendall(self.nick.encode('utf-8') + b'\n')
             data = self.client_socket.recv(1024).decode()
             print(data)
-            self.choose_room_option()  # Po podaniu nicku, gracz może wybrać pokój
+            print(data[0])
+            if data[0]=='N':
+                self.create_nick_entry()
+            else:
+                self.choose_room_option()  # Po podaniu nicku, gracz może wybrać pokój
 
     def choose_room_option(self):
         for widget in self.root.winfo_children():
@@ -93,7 +107,7 @@ class MathQuizClient:
         else:
             self.room = self.room_entry.get()
             self.client_socket.sendall(self.room.encode('utf-8') + b'\n')
-            time.sleep(0.5)
+            time.sleep(0.3)
             data = self.client_socket.recv(1024).decode()
             print(data)
             self.show_room_menu()
@@ -104,11 +118,12 @@ class MathQuizClient:
         
         self.rooms=[]
         self.client_socket.sendall('1'.encode('utf-8') + b'\n')
-        time.sleep(1)
+        time.sleep(0.3)
         data = self.client_socket.recv(1024).decode()
         #data = data.splitlines()[0].split(" ", 2)
         print(data.splitlines())
         test = data.splitlines()[0][0]
+        
         if test=='1':
             for line in data.splitlines():
                 parts = line.split(" ", 2)
@@ -150,45 +165,41 @@ class MathQuizClient:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        self.listen_thread = threading.Thread(target=self.listen_for_messages)
-        self.listen_thread.daemon = True  # Wątek zakończy się wraz z zamknięciem programu
-        self.listen_thread.start()
-        
-        # Ustawienie proporcji kolumn i wierszy
-        self.root.grid_columnconfigure(0, weight=1)  # Kolumna 0 (frame1) zajmuje resztę przestrzeni
-        self.root.grid_columnconfigure(1, weight=0)  # Kolumna 1 (frame2) ma stałą szerokość
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=0)
 
-        self.root.grid_rowconfigure(0, weight=1)  # Kolumna 0 (frame1) zajmuje całą dostępną wysokość
+        self.root.grid_rowconfigure(0, weight=1)
 
-        # Frame1 - główny panel
         frame1 = tk.Frame(master=self.root)
-        frame1.grid(row=0, column=0, sticky="nsew")  # Rozciągnięcie na całą dostępną przestrzeń
+        frame1.grid(row=0, column=0, sticky="nsew")
 
-        # Konfiguracja układu w grid, aby elementy były wyśrodkowane
-        frame1.grid_columnconfigure(0, weight=1)  # Wyśrodkowanie w poziomie
-        frame1.grid_rowconfigure(0, weight=1)  # Wyśrodkowanie w pionie
-        frame1.grid_rowconfigure(1, weight=1)  # Wyśrodkowanie w pionie
-        frame1.grid_rowconfigure(2, weight=1)  # Wyśrodkowanie w pionie
-        frame1.grid_rowconfigure(3, weight=1)  # Wyśrodkowanie w pionie
+        frame1.grid_columnconfigure(0, weight=1)
+        frame1.grid_rowconfigure(0, weight=1)
+        frame1.grid_rowconfigure(1, weight=1) 
+        frame1.grid_rowconfigure(2, weight=1)
+        frame1.grid_rowconfigure(3, weight=1) 
 
-        tk.Button(frame1, text="Leave", command=self.choose_room_option).grid(row=0, column=0, padx=10, pady=10, sticky="nw")
+        tk.Button(frame1, text="Leave", command=self.leave_room).grid(row=0, column=0, padx=10, pady=10, sticky="nw")
 
         tk.Label(frame1, text=f"Welcome to {self.room}!", font=("Arial", 20)).grid(row=0, column=0, pady=(50,10))
         tk.Button(frame1, text="Start Quiz", command=self.start_quiz).grid(row=1, column=0, pady=5)
 
-        #output
-        #tk.Text(frame1, width=40, height=10).grid(row=2, column=0)
-        self.chat_display = tk.Text(frame1, width=40, height=10, state=tk.DISABLED)  # Nie edytowalne pole
+        self.chat_display = tk.Text(frame1, width=40, height=10, state=tk.DISABLED)
         self.chat_display.grid(row=2, column=0, padx=10, pady=0)
 
-        #input
+        self.scrollchat = tk.Scrollbar(frame1, command=self.chat_display.yview)
+        self.scrollchat.grid(row=2, column=1, sticky='ns')
+        self.chat_display.config(yscrollcommand=self.scrollchat.set)
+        
+
         self.message_input = tk.Text(frame1, width=40, height=2)
         self.message_input.grid(row=3, column=0, padx=10, pady=5)
         tk.Button(frame1, text="Chat", command=self.chat).grid(row=3, column=1, pady=5)
 
-        # Pokazuje listę graczy w pokoju
         self.show_players_in_room()
         self.update_chat()
+        
+        self.listenForChat = True
 
     def show_players_in_room(self):
         """Wyświetla listę graczy w danym pokoju"""
@@ -198,17 +209,22 @@ class MathQuizClient:
 
         tk.Label(frame2, text="Players:", font=("Arial", 16)).grid(row=0, column=0, sticky="ew", padx=10, pady=5)
 
-        #######################################
-
-
-
-        #######################################
-        players = Serwer.send("PlayerList")
+        #players = Serwer.send("PlayerList")
+        players = []
+        self.client_socket.sendall('/listplayers'.encode() + b'\n')
+        time.sleep(0.3)
+        data = self.client_socket.recv(1024).decode()
+        data = data.splitlines()
+        data.pop()
+        data.pop(0)
+        print(data)
+        for line in data:
+            players.append(line.split(" ")[-1])
         for i, player in enumerate(players):
             tk.Label(frame2, text=player + ": 2137pkt", font=("Arial", 14)).grid(row=1 + i, column=0, sticky="ew", padx=5, pady=5)
     def listen_for_messages(self):
         """Nasłuchiwanie wiadomości od serwera w tle"""
-        while True:
+        while self.listenForChat:
             ready_to_read, _, _ = select.select([self.client_socket], [], [], 0.5)
             if ready_to_read:
                 message = self.client_socket.recv(1024).decode()
@@ -222,29 +238,30 @@ class MathQuizClient:
                 message = self.message_queue.get_nowait()
                 self.chat_display.config(state=tk.NORMAL)
                 self.chat_display.insert(tk.END, f"{message}\n")
+                self.chat_display.see(tk.END)
                 self.chat_display.config(state=tk.DISABLED)
         except queue.Empty:
             pass
         self.root.after(100, self.update_chat)
         
     def chat(self):
+        message = self.message_input.get("1.0", tk.END).strip() 
 
-        #######################################
-
-
-
-        #######################################
-        message = self.message_input.get("1.0", tk.END).strip()  # Pobranie tekstu z pola
-
-        if message:  # Jeśli wiadomość nie jest pusta
-            # Wypisanie wiadomości na ekranie (w chat_display)
-            self.chat_display.config(state=tk.NORMAL)  # Umożliwienie edytowania
-            self.chat_display.insert(tk.END, f"You: {message}\n")  # Dodanie wiadomości
-            self.chat_display.config(state=tk.DISABLED)  # Zablokowanie edytowania
+        if message:
+            self.chat_display.config(state=tk.NORMAL) 
+            self.chat_display.insert(tk.END, f"You: {message}\n") 
+            self.chat_display.see(tk.END)
+            self.chat_display.config(state=tk.DISABLED) 
             self.client_socket.sendall(message.encode() + b'\n')
-            # Wyczyść pole tekstowe po wysłaniu wiadomości
             self.message_input.delete("1.0", tk.END)
-
+    
+    def leave_room(self):
+        self.listenForChat=False
+        self.client_socket.sendall('/leave'.encode() + b'\n')
+        data = self.client_socket.recv(1024).decode()
+        print(data)
+        self.choose_room_option()
+        
     def start_quiz(self):
         question = "What is 5 + 3?"
         answer = simpledialog.askstring("Question", question)
