@@ -31,7 +31,7 @@ void printRooms(int fd)
         cout << "Room ID: " << room.room_id << ", Name: " << room.name << endl;
         if(fd > 2)
         {
-            string msg = to_string(iterator) + " name: " + room.name + "\n";
+            string msg = to_string(iterator) + " name: " + room.name + " game status:" + to_string(room.gameStarted) + "\n";
             write(fd, msg.c_str(), msg.length());
             iterator++;
         }
@@ -44,7 +44,8 @@ enum class PlayerState {
     AwaitingMenu,
     ChoosingRoom,
     CreatingRoom,
-    InRoom
+    InRoom,
+    AwaitingAnswer
 };
 
 class Player
@@ -57,7 +58,6 @@ public:
     PlayerState state = PlayerState::AwaitingName; // Initialize to AwaitingName
     string readBuffer; // Buffer to accumulate incoming data
     Room* room_in = nullptr;
-    
 
     Player(int newFd)
     {
@@ -103,7 +103,7 @@ public:
                 break;
 
             case PlayerState::AwaitingMenu:
-                menuHandler(input, local_rooms);
+                menuHandler(input);
                 break;
 
             case PlayerState::ChoosingRoom:
@@ -116,7 +116,16 @@ public:
                     }
                     else
                     {
-                        local_rooms[room_number-1].addPlayerToRoom(this);
+                        if(local_rooms[room_number-1].gameStarted)
+                        {
+                            string error_msg = "Gra w tym pokoju jest już rozpoczęta.\n";
+                            write(fd, error_msg.c_str(), error_msg.length());
+                        }
+                        else
+                        {
+                            local_rooms[room_number-1].addPlayerToRoom(this);
+                        }
+                        
                         // sendMenu(); // Usuń tę linię, aby nie wysyłać menu po dołączeniu do pokoju
                         state = PlayerState::InRoom;
                     }
@@ -150,12 +159,14 @@ public:
                     {
                         if (room_in && room_in->getLeader() == this)
                         {
-                            sendMessageToRoom("ZACZYNAMY za 3 2 1!", local_rooms, true);
-                            Question q;
-                            int correct = q();
-                            cout << to_string(correct) << endl;
-                            sendMessageToRoom("Pytanie: " + q.getQuestionText(), local_rooms, true);
-                            sendMessageToRoom(to_string(q.getAnswer()), local_rooms, true);
+                            room_in->gameStarted = true;
+                            string question_str;
+                            room_in->ProceedQuestion(question_str, room_in->correctAnswer);
+                            sendMessageToRoom("Pytanie: " + question_str, local_rooms, true);
+                            // Set state to AwaitingAnswer for all players in the room
+                            for (auto& player : room_in->players_in_room) {
+                                player->state = PlayerState::AwaitingAnswer;
+                            }
                         }
                         else
                         {
@@ -178,6 +189,28 @@ public:
                     }
                     else {
                         sendMessageToRoom(input, local_rooms);
+                    }
+                }
+                break;
+
+            case PlayerState::AwaitingAnswer:
+                {
+                    
+                    if (room_in) {
+                        cout << input.c_str() << endl;
+                        if (atoi(input.c_str()) == room_in->correctAnswer)
+                        {
+                            write(fd, "Dobra odpowiedź!\n", 19);
+                        }
+                        else
+                        {
+                            write(fd,"Zła odpowiedź!\n", 18);
+                        }
+                        state = PlayerState::InRoom;
+                    }
+                    else {
+                        string errorMsg = "Błąd: Nie jesteś w żadnym pokoju.\n";
+                        write(fd, errorMsg.c_str(), errorMsg.length());
                     }
                 }
                 break;
@@ -263,7 +296,7 @@ public:
         }
     }
 
-    void menuHandler(const string& input, vector<Room>& local_rooms)
+    void menuHandler(const string& input)
     {
         string make_room_msg = "Podaj nazwę pokoju (max 16 znaków): ";
         string unknown_command = "Nieznana operacja\n";
@@ -367,6 +400,16 @@ void Room::listPlayers(int fd) const
     message += "END\n";
     write(fd, message.c_str(), message.size());
 }
+
+void Room::ProceedQuestion(string &question_str, int &correctAnswer)
+{
+    currentQuestion = Question();
+    correctAnswer = currentQuestion.getAnswer(); //correct answer
+    question_str = currentQuestion.getQuestionText();
+    cout << correctAnswer << endl;
+    cout << question_str << endl;
+    //sendMessageToRoom("Pytanie: " + q.getQuestionText(), local_rooms, true);
+}   
 
 void Room::removePlayerFromRoom(Player* player_to_remove)
 {
@@ -502,44 +545,48 @@ int main(int argc, char **argv)
                 if (it != players.end())
                 {
                     char buffer[512];
-                    ssize_t bytes_read = read(client_fd, buffer, sizeof(buffer));
-                    if (bytes_read == -1)
+                    while (true)
                     {
-                        if (errno != EAGAIN && errno != EWOULDBLOCK)
+                        ssize_t bytes_read = read(client_fd, buffer, sizeof(buffer));
+                        if (bytes_read == -1)
                         {
-                            perror("read");
+                            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                                break; // No more data to read
+                            else
+                            {
+                                perror("read");
+                                it->quitGame();
+                                epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+                                players.erase(it);
+                                break;
+                            }
+                        }
+                        else if (bytes_read == 0)
+                        {
+                            // Client disconnected
                             it->quitGame();
                             epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
                             players.erase(it);
+                            break;
                         }
-                        // Otherwise, no data to read
-                        continue;
-                    }
-                    else if (bytes_read == 0)
-                    {
-                        // Client disconnected
-                        it->quitGame();
-                        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-                        players.erase(it);
-                        continue;
-                    }
-                    else
-                    {
-                        // Accumulate data
-                        it->readBuffer.append(buffer, bytes_read);
-
-                        // Check for newline or end of input
-                        size_t pos;
-                        while ((pos = it->readBuffer.find('\n')) != string::npos)
+                        else
                         {
-                            string input = it->readBuffer.substr(0, pos);
-                            it->readBuffer.erase(0, pos + 1);
+                            // Accumulate data
+                            it->readBuffer.append(buffer, bytes_read);
 
-                            // Trim carriage return if present
-                            if (!input.empty() && input.back() == '\r')
-                                input.pop_back();
+                            // Check for newline or end of input
+                            size_t pos;
+                            while ((pos = it->readBuffer.find('\n')) != string::npos)
+                            {
+                                string input = it->readBuffer.substr(0, pos);
+                                it->readBuffer.erase(0, pos + 1);
 
-                            it->handleInput(input, rooms);
+                                // Trim carriage return if present
+                                if (!input.empty() && input.back() == '\r')
+                                    input.pop_back();
+
+                                it->handleInput(input, rooms);
+                            }
                         }
                     }
                 }

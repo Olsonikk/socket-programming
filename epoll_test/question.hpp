@@ -1,9 +1,6 @@
 #pragma once
 
 #include <string>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
 
 class Question
 {
@@ -13,7 +10,6 @@ public:
 
     // Gettery
     std::string getQuestionText() const;
-    std::vector<std::string> getOptions() const;
 
     // Metody do generowania pytań
     void generateQuestion();
@@ -24,7 +20,6 @@ public:
 
 private:
     std::string text;
-    std::vector<std::string> options;
     int correctAnswer;
 
     // Atrybuty do przechowywania operacji
