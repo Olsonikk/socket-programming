@@ -113,28 +113,37 @@ public:
                     {
                         string error_msg = "Nieprawidłowy numer pokoju. Wybierz numer od 1 do " + to_string(Room::next_room_id - 1) + ".\n";
                         write(fd, error_msg.c_str(), error_msg.length());
+                        write(fd, "Dołącz do pokoju nr: ", 22);
+                        // Remain in ChoosingRoom state
                     }
                     else
                     {
-                        if(local_rooms[room_number-1].gameStarted)
+                        Room& selectedRoom = local_rooms[room_number-1];
+                        if(selectedRoom.gameStarted)
                         {
                             string error_msg = "Gra w tym pokoju jest już rozpoczęta.\n";
                             write(fd, error_msg.c_str(), error_msg.length());
+                            write(fd, "Dołącz do pokoju nr: ", 22);
+                            // Remain in ChoosingRoom state
+                        }
+                        else if(selectedRoom.players_in_room.size() >= Room::MAX_PLAYERS)
+                        {
+                            string error_msg = "Pokój jest pełny. Nie możesz dołączyć.\n";
+                            write(fd, error_msg.c_str(), error_msg.length());
+                            write(fd, "Dołącz do pokoju nr: ", 22);
+                            // Remain in ChoosingRoom state
                         }
                         else
                         {
-                            local_rooms[room_number-1].addPlayerToRoom(this);
+                            selectedRoom.addPlayerToRoom(this);
+                            state = PlayerState::InRoom;
                         }
-                        
-                        // sendMenu(); // Usuń tę linię, aby nie wysyłać menu po dołączeniu do pokoju
-                        state = PlayerState::InRoom;
                     }
                 }
                 break;
 
             case PlayerState::CreatingRoom:
                 {
-                    //this->name = input;
                     local_rooms.emplace_back();
                     local_rooms.back().name = input;
                     local_rooms.back().room_id = Room::next_room_id++;
@@ -207,6 +216,7 @@ public:
                             write(fd,"Zła odpowiedź!\n", 18);
                         }
                         state = PlayerState::InRoom;
+                        room_in->playerAnswered(); // Increment counter
                     }
                     else {
                         string errorMsg = "Błąd: Nie jesteś w żadnym pokoju.\n";
@@ -408,8 +418,18 @@ void Room::ProceedQuestion(string &question_str, int &correctAnswer)
     question_str = currentQuestion.getQuestionText();
     cout << correctAnswer << endl;
     cout << question_str << endl;
+    playersAnsweredCount = 0; // Reset counter
     //sendMessageToRoom("Pytanie: " + q.getQuestionText(), local_rooms, true);
 }   
+
+void Room::playerAnswered()
+{
+    playersAnsweredCount++;
+    if (playersAnsweredCount >= players_in_room.size()) {
+        gameStarted = false;
+
+    }
+}
 
 void Room::removePlayerFromRoom(Player* player_to_remove)
 {
@@ -594,7 +614,9 @@ int main(int argc, char **argv)
         }
     }
 
+
     close(epoll_fd);
     close(server_fd);
     return 0;
 }
+

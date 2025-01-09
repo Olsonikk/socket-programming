@@ -8,6 +8,8 @@ class Player; // forward declaration
 class Room
 {
 public:
+    static const size_t MAX_PLAYERS = 3; // Maximum number of players allowed
+
     bool gameStarted = false;
     static unsigned int next_room_id;
     int correctAnswer;
@@ -23,5 +25,11 @@ public:
     void setLeader(Player* newLeader);
     Player* getLeader() const;
 
+    void playerAnswered();
+
     void ProceedQuestion(std::string &squestion_str, int &correct);
+
+private:
+    unsigned int playersAnsweredCount = 0; // Initialize counter
+
 };
