@@ -154,7 +154,8 @@ public:
                             Question q;
                             int correct = q();
                             cout << to_string(correct) << endl;
-
+                            sendMessageToRoom("Pytanie: " + q.getQuestionText(), local_rooms, true);
+                            sendMessageToRoom(to_string(q.getAnswer()), local_rooms, true);
                         }
                         else
                         {

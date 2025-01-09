@@ -14,12 +14,11 @@ public:
     // Gettery
     std::string getQuestionText() const;
     std::vector<std::string> getOptions() const;
-    int getCorrectAnswerIndex() const;
 
     // Metody do generowania pytań
     void generateQuestion();
-    void generateOptions();
-
+    void generateAnswer();
+    int getAnswer() const;
     // Operator do wyświetlania pytania i zwracania poprawnej odpowiedzi
     int operator()();
 

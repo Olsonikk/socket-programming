@@ -6,7 +6,7 @@ Question::Question()
 {
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
     generateQuestion();
-    generateOptions();
+    generateAnswer();
     //doddac zmienną liczbę pytań
 }
 
@@ -42,7 +42,7 @@ char Question::getRandomOperation() const
 }
 
 // Metoda do generowania opcji odpowiedzi
-void Question::generateOptions()
+void Question::generateAnswer()
 {
     int correct;
     switch(operation)
@@ -56,6 +56,11 @@ void Question::generateOptions()
 
     // Tworzenie opcji odpowiedzi
 
+}
+
+int Question::getAnswer() const
+{
+    return correctAnswer;
 }
 
 int Question::operator()()
