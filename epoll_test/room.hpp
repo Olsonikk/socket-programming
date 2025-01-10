@@ -31,7 +31,7 @@ public:
     bool bonusGiven = false; // Dodany atrybut do śledzenia bonusu
 
     // Dodanie deklaracji nowej funkcji do wyświetlania graczy wraz z ID pokoju
-    void displayAllPlayers(int fd) const;
+    void displayAllPlayers(int fd, bool flag) const;
 
 private:
     unsigned int playersAnsweredCount = 0; // Initialize counter

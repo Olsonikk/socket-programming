@@ -7,7 +7,6 @@
 #include <vector>
 #include <poll.h>
 #include <cstring>
-#include <unistd.h> // for read and write
 #include <fcntl.h> // Add this include for fcntl
 #include <sys/epoll.h> // Ensure epoll is included
 #include <algorithm>
@@ -15,7 +14,9 @@
 
 using namespace std;
 
-list<Player> players; // Moved players to global scope
+// Zmiana typu listy graczy na wskaźniki
+// list<Player> players; // Stare
+list<Player*> players; // Nowe
 
 vector<Room> rooms;
 unsigned int Room::next_room_id = 1;
@@ -62,7 +63,7 @@ public:
     Room* room_in = nullptr;
 
     int points = 0; // Dodany atrybut do przechowywania punktów
-
+    int big_points = 0;
     Player(int newFd)
     {
         fd = newFd;
@@ -82,23 +83,34 @@ public:
 
     bool isNameTaken(const string& name) {
     for (const auto& player : players) {
-        if (player.name == name) {
+        if (player->name == name) {
             return true;
         }
     }
     return false;
     }
 
-    void displayAllPlayers(int fd)
+    void displayAllPlayers(int fd, bool which_points=false)
     {
+        //which_points --> True = big points
         // Tworzenie wiadomości z listą graczy i ID pokoju
         string message = "Pokój ID: " + to_string(room_id) + ", Nazwa: " + name + "\n";
         message += "Lista graczy:\n";
-        
-        for (const auto& player : room_in->players_in_room)
+        if(!which_points)
         {
-            message += " - " + player->name + " (Punkty: " + to_string(player->points) + ")\n";
+            for (const auto& player : room_in->players_in_room)
+            {
+                message += " - " + player->name + " (Punkty: " + to_string(player->points) + ")\n";
+            }
         }
+        else
+        {
+            for (const auto& player : room_in->players_in_room)
+            {
+                message += " - " + player->name + " (Punkty: " + to_string(player->big_points) + ")\n";
+            }
+        }
+        
         message += "END\n";
     
         // Wysyłanie wiadomości do klienta
@@ -232,6 +244,10 @@ public:
                     {
                        displayAllPlayers(fd);
                     }
+                    else if (input == "/ranking")
+                    {
+                        displayAllPlayers(fd, true);
+                    }
                     else {
                         sendMessageToRoom(input, local_rooms);
                     }
@@ -243,14 +259,15 @@ public:
                     
                     if (room_in) {
                         cout << input.c_str() << endl;
-                        if (atoi(input.c_str()) == room_in->correctAnswer)
+                        Question q = room_in->currentQuestion;
+                        if (atoi(input.c_str()) == q.getAnswer())
                         {
                             write(fd, "Dobra odpowiedź!\n", 19);
                             points += 1; // Przyznanie 1 punktu za poprawną odpowiedź
 
                             // Sprawdzenie, czy bonus został już przyznany
                             if (!room_in->bonusGiven) {
-                                points += 1; // Przyznanie bonusowego punktu
+                                points += 2; // Przyznanie bonusowego punktu
                                 room_in->bonusGiven = true;
                             }
                         }
@@ -472,9 +489,54 @@ void Room::playerAnswered()
 {
     playersAnsweredCount++;
     printf("Player answered. Count: %u/%zu\n", playersAnsweredCount, players_in_room.size());
-    if (playersAnsweredCount >= players_in_room.size()) {
-        gameStarted = false;
-        printf("Gra w pokoju '%s' została zatrzymana.\n", name.c_str());
+
+    if (playersAnsweredCount >= players_in_room.size())
+    {
+        // Sprawdź, czy któryś z graczy osiągnął 10 punktów
+        bool hasWinner = false;
+        Player* winner = nullptr;
+        for (auto &p : players_in_room)
+        {
+            if (p->points >= 10)
+            {
+                hasWinner = true;
+                winner = p;
+                break;
+            }
+        }
+
+        if (hasWinner)
+        {
+            winner->big_points++;
+            // Ogłoś zwycięzcę i zakończ grę
+            string endMsg = "Koniec gry! Zwycięzca to: " + winner->name + " (" + to_string(winner->points) + " pkt).\n";
+            for (auto &p : players_in_room)
+            {
+                p->points = 0;
+                write(p->fd, endMsg.c_str(), endMsg.size());
+                p->displayAllPlayers(p->fd, true);
+            }
+            gameStarted = false;
+            printf("Gra w pokoju '%s' została zakończona zwycięstwem '%s'.\n", name.c_str(), winner->name.c_str());
+            
+        }
+        else
+        {
+            // Resetuj liczenie odpowiedzi i generuj nowe pytanie
+            playersAnsweredCount = 0;
+            bonusGiven = false;
+            string question_str;
+            int nextAnswer;
+            ProceedQuestion(question_str, nextAnswer);
+
+            // Rozgłoś nowo wygenerowane pytanie
+            string nextQ = "Pytanie: " + question_str + "\n";
+            for (auto &p : players_in_room)
+            {
+                p->state = PlayerState::AwaitingAnswer;
+                write(p->fd, nextQ.c_str(), nextQ.size());
+            }
+        }
     }
 }
 
@@ -585,8 +647,9 @@ int main(int argc, char **argv)
 
                     printf("Nowy gracz dolaczyl do gry.\n");
 
-                    Player newPlayer(player_fd);
-                    newPlayer.sendNamePrompt(); // Prompt for name
+                    // Tworzenie dynamicznej instancji gracza
+                    Player* newPlayer = new Player(player_fd);
+                    newPlayer->sendNamePrompt(); // Prompt for name
                     players.push_back(newPlayer);
 
                     // Add new socket to epoll
@@ -604,7 +667,7 @@ int main(int argc, char **argv)
                 // Handle client events
                 int client_fd = events[i].data.fd;
                 auto it = std::find_if(players.begin(), players.end(),
-                    [client_fd](const Player& p) { return p.fd == client_fd; });
+                    [client_fd](Player* p) { return p->fd == client_fd; });
 
                 if (it != players.end())
                 {
@@ -619,8 +682,9 @@ int main(int argc, char **argv)
                             else
                             {
                                 perror("read");
-                                it->quitGame();
+                                (*it)->quitGame();
                                 epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+                                delete *it; // Zwolnienie pamięci
                                 players.erase(it);
                                 break;
                             }
@@ -628,28 +692,29 @@ int main(int argc, char **argv)
                         else if (bytes_read == 0)
                         {
                             // Client disconnected
-                            it->quitGame();
+                            (*it)->quitGame();
                             epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
+                            delete *it; // Zwolnienie pamięci
                             players.erase(it);
                             break;
                         }
                         else
                         {
                             // Accumulate data
-                            it->readBuffer.append(buffer, bytes_read);
+                            (*it)->readBuffer.append(buffer, bytes_read);
 
                             // Check for newline or end of input
                             size_t pos;
-                            while ((pos = it->readBuffer.find('\n')) != string::npos)
+                            while ((pos = (*it)->readBuffer.find('\n')) != string::npos)
                             {
-                                string input = it->readBuffer.substr(0, pos);
-                                it->readBuffer.erase(0, pos + 1);
+                                string input = (*it)->readBuffer.substr(0, pos);
+                                (*it)->readBuffer.erase(0, pos + 1);
 
                                 // Trim carriage return if present
                                 if (!input.empty() && input.back() == '\r')
                                     input.pop_back();
 
-                                it->handleInput(input, rooms);
+                                (*it)->handleInput(input, rooms);
                             }
                         }
                     }
@@ -658,6 +723,10 @@ int main(int argc, char **argv)
         }
     }
 
+    // Zwolnienie pamięci dla wszystkich graczy przed zamknięciem
+    for (auto player : players) {
+        delete player;
+    }
 
     close(epoll_fd);
     close(server_fd);
