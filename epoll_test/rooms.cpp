@@ -224,8 +224,14 @@ public:
                                 printf("Gracz '%s' rozpoczął grę w pokoju '%s'.\n", name.c_str(), room_in->name.c_str());
                                 string question_str;
                                 room_in->ProceedQuestion(question_str, room_in->correctAnswer);
+
+                                for (auto& player : room_in->players_in_room) {
+                                    displayAllPlayers(player->fd, false);
+                                }
+
                                 sendMessageToRoom("Pytanie: " + question_str, local_rooms, true);
                                 // Set state to AwaitingAnswer for all players in the room
+                                
                                 for (auto& player : room_in->players_in_room) {
                                     player->state = PlayerState::AwaitingAnswer;
                                     printf("Gracz '%s' ma teraz stan AwaitingAnswer.\n", player->name.c_str());
