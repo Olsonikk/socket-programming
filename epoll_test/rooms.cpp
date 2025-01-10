@@ -31,7 +31,8 @@ void printRooms(int fd)
         cout << "Room ID: " << room.room_id << ", Name: " << room.name << endl;
         if(fd > 2)
         {
-            string msg = to_string(iterator) + " name: " + room.name + " game status:" + to_string(room.gameStarted) + "\n";
+            // Dodano liczbę graczy w pokoju
+            string msg = to_string(iterator) + " name: " + room.name + " game status:" + to_string(room.gameStarted) + " players: " + to_string(room.players_in_room.size()) + "/" + to_string(Room::MAX_PLAYERS) + "\n";
             write(fd, msg.c_str(), msg.length());
             iterator++;
         }
