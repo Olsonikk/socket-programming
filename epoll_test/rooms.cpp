@@ -40,6 +40,7 @@ void printRooms(int fd)
    
 }
 
+
 enum class PlayerState {
     AwaitingName,
     AwaitingMenu,
@@ -86,6 +87,22 @@ public:
         }
     }
     return false;
+    }
+
+    void displayAllPlayers(int fd)
+    {
+        // Tworzenie wiadomości z listą graczy i ID pokoju
+        string message = "Pokój ID: " + to_string(room_id) + ", Nazwa: " + name + "\n";
+        message += "Lista graczy:\n";
+        
+        for (const auto& player : room_in->players_in_room)
+        {
+            message += " - " + player->name + " (Punkty: " + to_string(player->points) + ")\n";
+        }
+        message += "END\n";
+    
+        // Wysyłanie wiadomości do klienta
+        write(fd, message.c_str(), message.length());
     }
 
     void handleInput(const string& input, vector<Room>& local_rooms)
@@ -168,7 +185,7 @@ public:
                     local_rooms.back().addPlayerToRoom(this);
                     
                     // Powiadomienie gracza o utworzeniu i dołączeniu do pokoju
-                    write(fd, "Pokój został utworzony i dołączono do niego.\n", 50);
+                    //write(fd, "Pokój został utworzony i dołączono do niego.\n", 50);
                     
                     // Zmiana stanu na InRoom
                     state = PlayerState::InRoom;
@@ -186,6 +203,7 @@ public:
                         {
                             if (room_in->players_in_room.size() < 2) {
                                 string errorMsg = "Nie można rozpocząć gry. Potrzebnych jest co najmniej dwóch graczy.\n";
+                                cout << to_string(room_in->players_in_room.size());
                                 write(fd, errorMsg.c_str(), errorMsg.length());
                                 printf("Gracz '%s' próbował rozpocząć grę, ale jest tylko %zu graczy w pokoju.\n", name.c_str(), room_in->players_in_room.size());
                             }
@@ -212,15 +230,7 @@ public:
                     else if (input == "/listrooms") printRooms(fd);
                     else if (input == "/listplayers") 
                     {
-                        if (room_in != nullptr)
-                        {
-                            room_in->listPlayers(fd);
-                        }
-                        else
-                        {
-                            string errorMsg = "Nie jesteś w żadnym pokoju.\n";
-                            write(fd, errorMsg.c_str(), errorMsg.length());
-                        }
+                       displayAllPlayers(fd);
                     }
                     else {
                         sendMessageToRoom(input, local_rooms);
@@ -242,7 +252,6 @@ public:
                             if (!room_in->bonusGiven) {
                                 points += 1; // Przyznanie bonusowego punktu
                                 room_in->bonusGiven = true;
-                                write(fd, "BONUS\n", 7);
                             }
                         }
                         else
@@ -290,6 +299,7 @@ public:
             // Zmień stan gracza na AwaitingMenu
             state = PlayerState::AwaitingMenu;
             sendMenu();
+
         }
         else
         {
@@ -384,10 +394,10 @@ void Room::setLeader(Player* newLeader)
     leader = newLeader;
     string leaderMsg = leader->name + " został(a) wybrany(a) na lidera pokoju.\n";
     cout << leaderMsg << endl;
-    for (const auto& player : players_in_room)
-    {
-        write(player->fd, leaderMsg.c_str(), leaderMsg.length());
-    }
+    // for (const auto& player : players_in_room)
+    // {
+    //     write(player->fd, leaderMsg.c_str(), leaderMsg.length());
+    // }
 }
 
 Player* Room::getLeader() const
@@ -412,8 +422,8 @@ void Room::addPlayerToRoom(Player* player_to_add)
     }
 
     // Optionally, notify the joining player of existing members
-    string welcomeMsg = "Witaj w pokoju " + name + "!\n";
-    write(player_to_add->fd, welcomeMsg.c_str(), welcomeMsg.length());
+    // string welcomeMsg = "Witaj w pokoju " + name + "!\n";
+    // write(player_to_add->fd, welcomeMsg.c_str(), welcomeMsg.length());
 
     // Ustaw lidera jeśli to pierwszy gracz
     if (players_in_room.size() == 1)
@@ -422,29 +432,29 @@ void Room::addPlayerToRoom(Player* player_to_add)
     }
 }
 
-void Room::listPlayers(int fd) const
-{
-    string message;
-    // Pre-allocate some space to avoid repeated resizing
+// void Room::listPlayers(int fd) const
+// {
+//     string message;
+//     // Pre-allocate some space to avoid repeated resizing
+//     cout << room_id << endl;
+//     message += "Players in room " + name + " (ID: " + to_string(room_id) + "):\n";
 
-    message += "Players in room " + this->name + " (ID: " + to_string(room_id) + "):\n";
-
-    for (const auto &player : players_in_room)
-    {
-        if (player == leader)
-        {
-            // message += "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
-            message += "Player name: " + player->name + " (lider), Points: " + to_string(player->points) + "\n";
-        }
-        else
-        {
-            //message += "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
-            message += "Player name: " + player->name + ", Points: " + to_string(player->points) + "\n";
-        }
-    }
-    message += "END\n";
-    write(fd, message.c_str(), message.size());
-}
+//     for (const auto &player : players_in_room)
+//     {
+//         if (player == leader)
+//         {
+//             // message += "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
+//             message += "Player name: " + player->name + " (lider), Points: " + to_string(player->points) + "\n";
+//         }
+//         else
+//         {
+//             //message += "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
+//             message += "Player name: " + player->name + ", Points: " + to_string(player->points) + "\n";
+//         }
+//     }
+//     message += "END\n";
+//     write(fd, message.c_str(), message.size());
+// }
 
 void Room::ProceedQuestion(string &question_str, int &correctAnswer)
 {
@@ -518,9 +528,6 @@ int setNonBlocking(int fd) {
 int main(int argc, char **argv)
 {
     
-
-    //printRooms(0);
-
     int server_fd = socket_bind_listen(argc, argv, SOCK_STREAM);
 
     // Set server socket to non-blocking
@@ -585,7 +592,7 @@ int main(int argc, char **argv)
                     // Add new socket to epoll
                     epoll_event client_event;
                     client_event.data.fd = player_fd;
-                    client_event.events = EPOLLIN | EPOLLET;
+                    client_event.events = EPOLLIN; 
                     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, player_fd, &client_event) == -1) {
                         perror("epoll_ctl: player_fd");
                         exit(EXIT_FAILURE);

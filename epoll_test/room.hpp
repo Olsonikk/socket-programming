@@ -19,7 +19,6 @@ public:
     Player* leader = nullptr; // Dodaj ten wskaźnik
     Question currentQuestion;
     void addPlayerToRoom(Player* player_to_add);
-    void listPlayers(int fd) const;
     void removePlayerFromRoom(Player* player_to_remove);
     // Dodaj metody do ustawiania i pobierania lidera
     void setLeader(Player* newLeader);
@@ -27,9 +26,23 @@ public:
 
     void playerAnswered();
 
-    void ProceedQuestion(std::string &squestion_str, int &correct);
+    void ProceedQuestion(std::string &question_str, int &correct);
+
+    bool bonusGiven = false; // Dodany atrybut do śledzenia bonusu
+
+    // Dodanie deklaracji nowej funkcji do wyświetlania graczy wraz z ID pokoju
+    void displayAllPlayers(int fd) const;
 
 private:
     unsigned int playersAnsweredCount = 0; // Initialize counter
 
 };
+//POMIEDZY RUNDAMI WYSYLAC RANKING /ranking. END na koncu. 
+// sprawdzanie dlugosci gracza i pokoju nazwy
+// maksymalna dlugiosc wiadomosci na czacie
+//zapytać Igora o to jak czyta dlugość odebranych danych - spytać o to czy wszedzie gdzie trzeba jest znak END
+//sprawdzic edge triggered
+//492 nie obsługujecie tutaj sklejania/dzielenia komunikatów przez TCP
+//sprawdzsic timeoput w epoll_wait
+//sprawdzic czy jak wejdzie klient przed wyslaniem drugiego pytanie, to czy je dostanie
+//dostaje od klienta odpowiedz + int czzasu ktory // 1000
