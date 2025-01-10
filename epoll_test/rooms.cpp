@@ -168,19 +168,29 @@ public:
                     {
                         if (room_in && room_in->getLeader() == this)
                         {
-                            room_in->gameStarted = true;
-                            string question_str;
-                            room_in->ProceedQuestion(question_str, room_in->correctAnswer);
-                            sendMessageToRoom("Pytanie: " + question_str, local_rooms, true);
-                            // Set state to AwaitingAnswer for all players in the room
-                            for (auto& player : room_in->players_in_room) {
-                                player->state = PlayerState::AwaitingAnswer;
+                            if (room_in->players_in_room.size() < 2) {
+                                string errorMsg = "Nie można rozpocząć gry. Potrzebnych jest co najmniej dwóch graczy.\n";
+                                write(fd, errorMsg.c_str(), errorMsg.length());
+                                printf("Gracz '%s' próbował rozpocząć grę, ale jest tylko %zu graczy w pokoju.\n", name.c_str(), room_in->players_in_room.size());
+                            }
+                            else {
+                                room_in->gameStarted = true;
+                                printf("Gracz '%s' rozpoczął grę w pokoju '%s'.\n", name.c_str(), room_in->name.c_str());
+                                string question_str;
+                                room_in->ProceedQuestion(question_str, room_in->correctAnswer);
+                                sendMessageToRoom("Pytanie: " + question_str, local_rooms, true);
+                                // Set state to AwaitingAnswer for all players in the room
+                                for (auto& player : room_in->players_in_room) {
+                                    player->state = PlayerState::AwaitingAnswer;
+                                    printf("Gracz '%s' ma teraz stan AwaitingAnswer.\n", player->name.c_str());
+                                }
                             }
                         }
                         else
                         {
                             string errorMsg = "Tylko lider może rozpocząć grę.\n";
                             write(fd, errorMsg.c_str(), errorMsg.length());
+                            printf("Gracz '%s' próbował rozpocząć grę, ale nie jest liderem.\n", name.c_str());
                         }
                     }
                     else if (input == "/listrooms") printRooms(fd);
@@ -425,9 +435,10 @@ void Room::ProceedQuestion(string &question_str, int &correctAnswer)
 void Room::playerAnswered()
 {
     playersAnsweredCount++;
+    printf("Player answered. Count: %u/%zu\n", playersAnsweredCount, players_in_room.size());
     if (playersAnsweredCount >= players_in_room.size()) {
         gameStarted = false;
-
+        printf("Gra w pokoju '%s' została zatrzymana.\n", name.c_str());
     }
 }
 
