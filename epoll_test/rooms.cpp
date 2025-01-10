@@ -150,6 +150,13 @@ public:
 
             case PlayerState::CreatingRoom:
                 {
+                    if(input == "/back")
+                    {
+                        sendMenu();
+                        state = PlayerState::AwaitingMenu;
+                        break;
+                    }
+                    
                     local_rooms.emplace_back();
                     local_rooms.back().name = input;
                     local_rooms.back().room_id = Room::next_room_id++;
