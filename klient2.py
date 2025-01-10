@@ -18,17 +18,19 @@ class MathQuizClient:
         self.server_address = server_address
         self.message_queue = queue.Queue()
 
-        self.flag = True
+        self.flag = False
         self.connect_to_server()
+        self.running_time=False
+        self.start_quiz_flag=False
+        self.host = False
 
         self.listenForChat = False
-        self.listen_thread = threading.Thread(target=self.listen_for_messages)
-        self.listen_thread.daemon = True
-        self.listen_thread.start()
+        #self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        #self.listen_thread.daemon = True
+        #self.listen_thread.start()
 
         self.create_nick_entry()
     def connect_to_server(self):
-        """Nawiązywanie połączenia z serwerem"""
         try:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect(self.server_address)
@@ -59,19 +61,14 @@ class MathQuizClient:
             
 
     def submit_nick(self):
-        #Serwer.send(["CreatePlayer", self.nick_entry.get()])
-        #print(Serwer.send("PlayerList"))
         self.nick = self.nick_entry.get().strip()
         if self.nick:
             self.client_socket.sendall(self.nick.encode('utf-8') + b'\n')
             data = self.client_socket.recv(1024).decode()
-            print(data)
-            print(data[0])
             if data[0]=='N':
                 self.create_nick_entry()
             else:
-                self.choose_room_option()  # Po podaniu nicku, gracz może wybrać pokój
-
+                self.choose_room_option()
     def choose_room_option(self):
         for widget in self.root.winfo_children():
             widget.destroy()
@@ -89,7 +86,7 @@ class MathQuizClient:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Button(self.root, text="back", command=self.choose_room_option).place(x=0,y=0)
+        #tk.Button(self.root, text="back", command=self.choose_room_option).place(x=0,y=0)
 
         tk.Label(self.root, text="Enter room name:", font=("Arial", 16)).pack(pady=20)
 
@@ -114,8 +111,6 @@ class MathQuizClient:
 			
 
     def show_available_rooms(self):
-        """Pokazuje dostępne pokoje"""
-        
         self.rooms=[]
         self.client_socket.sendall('1'.encode('utf-8') + b'\n')
         time.sleep(0.3)
@@ -129,15 +124,15 @@ class MathQuizClient:
                 parts = line.split(" ", 2)
                 if len(parts)==3:
                     print(parts)
-                    self.rooms.append(parts[2])
+                    self.rooms.append(parts[2].split(" ")[0])
         else:
-            self.choose_room_option
+            self.choose_room_option()
             return
         self.rooms.pop()
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Button(self.root, text="back", command=self.choose_room_option).place(x=0,y=0)
+        #tk.Button(self.root, text="back", command=self.choose_room_option).place(x=0,y=0)
         tk.Label(self.root, text="Available rooms:", font=("Arial", 16)).pack(pady=20)
 
         print("rooms: \n")
@@ -182,7 +177,7 @@ class MathQuizClient:
         tk.Button(frame1, text="Leave", command=self.leave_room).grid(row=0, column=0, padx=10, pady=10, sticky="nw")
 
         tk.Label(frame1, text=f"Welcome to {self.room}!", font=("Arial", 20)).grid(row=0, column=0, pady=(50,10))
-        tk.Button(frame1, text="Start Quiz", command=self.start_quiz).grid(row=1, column=0, pady=5)
+        tk.Button(frame1, text="Start Quiz", command=self.start_quiz_host).grid(row=1, column=0, pady=5)
 
         self.chat_display = tk.Text(frame1, width=40, height=10, state=tk.DISABLED)
         self.chat_display.grid(row=2, column=0, padx=10, pady=0)
@@ -195,22 +190,21 @@ class MathQuizClient:
         self.message_input = tk.Text(frame1, width=40, height=2)
         self.message_input.grid(row=3, column=0, padx=10, pady=5)
         tk.Button(frame1, text="Chat", command=self.chat).grid(row=3, column=1, pady=5)
+        self.message_input.bind("<Return>", lambda event: self.chat())
 
         self.show_players_in_room()
         self.update_chat()
         
-        self.listenForChat = True
+        self.listen_thread = threading.Thread(target=self.listen_for_messages)
+        self.listen_thread.daemon = True
+        self.listen_thread.start()
 
     def show_players_in_room(self):
-        """Wyświetla listę graczy w danym pokoju"""
-        # Frame2 - lista graczy
-        frame2 = tk.Frame(master=self.root, relief=tk.RAISED, bd=2)
-        frame2.grid(row=0, column=1, sticky="ns")  # Ustawienie po prawej stronie
+        self.frame2 = tk.Frame(master=self.root, relief=tk.RAISED, bd=2)
+        self.frame2.grid(row=0, column=1, sticky="ns")
 
-        tk.Label(frame2, text="Players:", font=("Arial", 16)).grid(row=0, column=0, sticky="ew", padx=10, pady=5)
-
-        #players = Serwer.send("PlayerList")
-        players = []
+        tk.Label(self.frame2, text="Players:", font=("Arial", 16)).grid(row=0, column=0, sticky="ew", padx=10, pady=5)
+        self.players = []
         self.client_socket.sendall('/listplayers'.encode() + b'\n')
         time.sleep(0.3)
         data = self.client_socket.recv(1024).decode()
@@ -218,21 +212,38 @@ class MathQuizClient:
         data.pop()
         data.pop(0)
         print(data)
+        if self.nick == data[0].split(" ")[-1]:
+            self.host = True
+            print("jestem hostem")
+        else:
+            self.host = False
+            print("nie jestem hostem")
         for line in data:
-            players.append(line.split(" ")[-1])
-        for i, player in enumerate(players):
-            tk.Label(frame2, text=player + ": 2137pkt", font=("Arial", 14)).grid(row=1 + i, column=0, sticky="ew", padx=5, pady=5)
+            self.players.append(line.split(" ")[-1])
+        for i, player in enumerate(self.players):
+            tk.Label(self.frame2, text=player + ": 0pkt", font=("Arial", 14)).grid(row=1 + i, column=0, sticky="ew", padx=5, pady=5)
+        self.listenForChat = True
+            
     def listen_for_messages(self):
-        """Nasłuchiwanie wiadomości od serwera w tle"""
         while self.listenForChat:
             ready_to_read, _, _ = select.select([self.client_socket], [], [], 0.5)
             if ready_to_read:
                 message = self.client_socket.recv(1024).decode()
                 print(f"Received message: {message}")
+                if "dołączył do pokoju." in message:
+                    player = message.split(" ")[0]
+                    tk.Label(self.frame2, text=player + ": 0pkt", font=("Arial", 14)).grid(row=1 + len(self.players), column=0, sticky="ew", padx=5, pady=5)
+                    self.players.append(player)
+                elif "ZACZYNAM QUIZ" in message and not self.host:
+                    self.start_quiz_flag=True
+                    self.listenForChat=False
+                    break
                 if message:
                     self.message_queue.put(message)
+        print("koniec listen for mess")
+        self.flag = False
+                    
     def update_chat(self):
-        """Funkcja sprawdzająca, czy w kolejce są nowe wiadomości"""
         try:
             while not self.message_queue.empty():
                 message = self.message_queue.get_nowait()
@@ -242,6 +253,12 @@ class MathQuizClient:
                 self.chat_display.config(state=tk.DISABLED)
         except queue.Empty:
             pass
+            
+        if not self.listenForChat and self.listen_thread:
+            self.listen_thread.join()
+            self.listen_thread = None
+            self.start_quiz_quest()
+
         self.root.after(100, self.update_chat)
         
     def chat(self):
@@ -257,17 +274,96 @@ class MathQuizClient:
     
     def leave_room(self):
         self.listenForChat=False
+        time.sleep(0.5)
         self.client_socket.sendall('/leave'.encode() + b'\n')
         data = self.client_socket.recv(1024).decode()
         print(data)
         self.choose_room_option()
-        
+    def start_quiz_host(self):
+        self.client_socket.sendall("ZACZYNAM QUIZ".encode() + b'\n')
+        self.start_quiz()
     def start_quiz(self):
-        question = "What is 5 + 3?"
-        answer = simpledialog.askstring("Question", question)
-        if answer:
-            self.show_result(answer)
+        for widget in self.root.winfo_children():
+                widget.destroy()
+        self.listenForChat=False
+        self.listen_thread.join()
+        self.listen_thread = None
+        self.client_socket.sendall("/start".encode() + b'\n')
+        data = self.client_socket.recv(1024).decode()
+        self.question_text = data.replace("Pytanie: ", "")
+        print(self.question_text[0])
+        if self.question_text[0] == "N" or not self.host:
+            self.show_room_menu()
+            return
 
+        self.time = 10*100
+        self.timer_label = tk.Label(self.root, text=self.format_time(self.time))
+        self.timer_label.pack(pady=20)
+        self.question = tk.Label(self.root, text="What is " + self.question_text).pack()
+        
+        self.answer_input = tk.Entry(self.root, font=("Arial", 14))
+        self.answer_input.pack()
+        
+        self.answer_input.bind("<Return>", lambda event: self.submit_answer())
+
+        tk.Button(self.root, text="Send", command=self.submit_answer).pack()
+        self.running_time = True
+        self.time_thread = threading.Thread(target=self.update_timer)
+        self.time_thread.daemon = True
+        self.time_thread.start()
+    def start_quiz_quest(self):
+        for widget in self.root.winfo_children():
+                widget.destroy()
+        data = self.client_socket.recv(1024).decode()
+        self.question_text = data.replace("Pytanie: ", "")
+        print(self.question_text[0])
+        if self.question_text[0] == "N":
+            self.show_room_menu()
+            return
+
+        self.time = 10*100
+        self.timer_label = tk.Label(self.root, text=self.format_time(self.time))
+        self.timer_label.pack(pady=20)
+        self.question = tk.Label(self.root, text="What is " + self.question_text).pack()
+        
+        self.answer_input = tk.Entry(self.root, font=("Arial", 14))
+        self.answer_input.pack()
+        
+        self.answer_input.bind("<Return>", lambda event: self.submit_answer())
+
+        tk.Button(self.root, text="Send", command=self.submit_answer).pack()
+        self.running_time = True
+        self.time_thread = threading.Thread(target=self.update_timer)
+        self.time_thread.daemon = True
+        self.time_thread.start()
+    def submit_answer(self):
+        self.answer = self.answer_input.get()
+        self.running_time = False
+        self.time = 0
+        self.client_socket.sendall(self.answer.encode() + b'\n')
+        data = self.client_socket.recv(1024).decode()
+        print(data)
+        self.time_thread.join()
+        self.show_room_menu()
+        
+    def timer(self):
+        print("Timer start")
+        self.update_timer()
+        self.show_room_menu()
+        
+    def update_timer(self):
+        while self.time>0:
+            self.timer_label.config(text=self.format_time(self.time))
+            self.time -= 1
+            threading.Event().wait(0.01)
+        if self.time<=0:
+            self.running_time = False
+            
+    def format_time(self, czas):
+        seconds = czas // 100
+        czas = czas % 100
+        return f"{seconds:02}:{czas:02}"
+        
     def show_result(self, result):
         tk.Label(self.root, text=f"Your answer: {result}", font=("Arial", 16)).pack(pady=20)
         tk.Button(self.root, text="Play Again", command=self.start_quiz).pack(pady=10)
