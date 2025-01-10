@@ -108,6 +108,12 @@ public:
 
             case PlayerState::ChoosingRoom:
                 {
+                    if(input == "/back")
+                    {
+                        sendMenu();
+                        state = PlayerState::AwaitingMenu;
+                        break;
+                    } 
                     unsigned int room_number = atoi(input.c_str());
                     if (room_number < 1 || room_number >= Room::next_room_id)
                     {
@@ -119,14 +125,14 @@ public:
                     else
                     {
                         Room& selectedRoom = local_rooms[room_number-1];
-                        if(selectedRoom.gameStarted)
-                        {
-                            string error_msg = "Gra w tym pokoju jest już rozpoczęta.\n";
-                            write(fd, error_msg.c_str(), error_msg.length());
-                            write(fd, "Dołącz do pokoju nr: ", 22);
-                            // Remain in ChoosingRoom state
-                        }
-                        else if(selectedRoom.players_in_room.size() >= Room::MAX_PLAYERS)
+                        // if(selectedRoom.gameStarted)
+                        // {
+                        //     string error_msg = "Gra w tym pokoju jest już rozpoczęta.\n";
+                        //     write(fd, error_msg.c_str(), error_msg.length());
+                        //     write(fd, "Dołącz do pokoju nr: ", 22);
+                        //     // Remain in ChoosingRoom state
+                        // }
+                        if(selectedRoom.players_in_room.size() >= Room::MAX_PLAYERS)
                         {
                             string error_msg = "Pokój jest pełny. Nie możesz dołączyć.\n";
                             write(fd, error_msg.c_str(), error_msg.length());
