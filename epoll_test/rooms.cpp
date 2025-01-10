@@ -242,7 +242,7 @@ public:
                     else if (input == "/listrooms") printRooms(fd);
                     else if (input == "/listplayers") 
                     {
-                       displayAllPlayers(fd);
+                       displayAllPlayers(fd, false);
                     }
                     else if (input == "/ranking")
                     {
@@ -489,7 +489,7 @@ void Room::playerAnswered()
 {
     playersAnsweredCount++;
     printf("Player answered. Count: %u/%zu\n", playersAnsweredCount, players_in_room.size());
-
+    
     if (playersAnsweredCount >= players_in_room.size())
     {
         // Sprawdź, czy któryś z graczy osiągnął 10 punktów
@@ -503,6 +503,7 @@ void Room::playerAnswered()
                 winner = p;
                 break;
             }
+            p->displayAllPlayers(p->fd, false);
         }
 
         if (hasWinner)
