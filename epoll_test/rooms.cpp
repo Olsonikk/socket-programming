@@ -242,7 +242,7 @@ public:
                             if (!room_in->bonusGiven) {
                                 points += 1; // Przyznanie bonusowego punktu
                                 room_in->bonusGiven = true;
-                                write(fd, "BONUS\n", 46);
+                                write(fd, "BONUS\n", 7);
                             }
                         }
                         else
