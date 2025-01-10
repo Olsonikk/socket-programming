@@ -60,6 +60,8 @@ public:
     string readBuffer; // Buffer to accumulate incoming data
     Room* room_in = nullptr;
 
+    int points = 0; // Dodany atrybut do przechowywania punktów
+
     Player(int newFd)
     {
         fd = newFd;
@@ -234,10 +236,19 @@ public:
                         if (atoi(input.c_str()) == room_in->correctAnswer)
                         {
                             write(fd, "Dobra odpowiedź!\n", 19);
+                            points += 1; // Przyznanie 1 punktu za poprawną odpowiedź
+
+                            // Sprawdzenie, czy bonus został już przyznany
+                            if (!room_in->bonusGiven) {
+                                points += 1; // Przyznanie bonusowego punktu
+                                room_in->bonusGiven = true;
+                                write(fd, "BONUS\n", 46);
+                            }
                         }
                         else
                         {
                             write(fd,"Zła odpowiedź!\n", 18);
+                            // Nie przyznawaj punktów za złą odpowiedź
                         }
                         state = PlayerState::InRoom;
                         room_in->playerAnswered(); // Increment counter
@@ -423,12 +434,12 @@ void Room::listPlayers(int fd) const
         if (player == leader)
         {
             // message += "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
-            message += "Player name:  (lider), Player ID: " + player->name + "\n";
+            message += "Player name: " + player->name + " (lider), Points: " + to_string(player->points) + "\n";
         }
         else
         {
             //message += "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
-            message += "Player name:  , Player ID: " + player->name + "\n";
+            message += "Player name: " + player->name + ", Points: " + to_string(player->points) + "\n";
         }
     }
     message += "END\n";
@@ -443,6 +454,7 @@ void Room::ProceedQuestion(string &question_str, int &correctAnswer)
     cout << correctAnswer << endl;
     cout << question_str << endl;
     playersAnsweredCount = 0; // Reset counter
+    bonusGiven = false; // Reset bonus flag for new question
     //sendMessageToRoom("Pytanie: " + q.getQuestionText(), local_rooms, true);
 }   
 
@@ -644,4 +656,6 @@ int main(int argc, char **argv)
     close(server_fd);
     return 0;
 }
+
+
 
