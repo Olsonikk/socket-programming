@@ -516,14 +516,7 @@ void Room::playerAnswered()
                 w->big_points++;
             }
             // Ogłoś zwycięzcę i zakończ grę
-            string endMsg = "Koniec gry! Zwycięzcy to: ";
-            for (auto &w : winners)
-            {
-                endMsg += w->name + " (" + to_string(w->points) + " pkt), ";
-            }
-            endMsg.pop_back(); // Remove last comma
-            endMsg.pop_back(); // Remove last space
-            endMsg += ".\n";
+            string endMsg = "Koniec gry!\n";
             for (auto &p : players_in_room)
             {
                 p->points = 0;
