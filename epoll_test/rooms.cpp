@@ -500,24 +500,32 @@ void Room::playerAnswered()
     if (playersAnsweredCount >= players_in_room.size())
     {
         // Sprawdź, czy któryś z graczy osiągnął 10 punktów
-        bool hasWinner = false;
-        Player* winner = nullptr;
+        vector<Player*> winners;
         for (auto &p : players_in_room)
         {
             if (p->points >= 10)
             {
-                hasWinner = true;
-                winner = p;
-                break;
+                winners.push_back(p);
             }
             this->displayAllPlayers(p->fd, false);
         }
 
-        if (hasWinner)
+        if (!winners.empty())
         {
-            winner->big_points++;
+            // Każdy zwycięzca dostaje +1 big_points
+            for (auto &w : winners)
+            {
+                w->big_points++;
+            }
             // Ogłoś zwycięzcę i zakończ grę
-            string endMsg = "Koniec gry! Zwycięzca to: " + winner->name + " (" + to_string(winner->points) + " pkt).\n";
+            string endMsg = "Koniec gry! Zwycięzcy to: ";
+            for (auto &w : winners)
+            {
+                endMsg += w->name + " (" + to_string(w->points) + " pkt), ";
+            }
+            endMsg.pop_back(); // Remove last comma
+            endMsg.pop_back(); // Remove last space
+            endMsg += ".\n";
             for (auto &p : players_in_room)
             {
                 p->points = 0;
@@ -525,7 +533,7 @@ void Room::playerAnswered()
                 this->displayAllPlayers(p->fd, true);
             }
             gameStarted = false;
-            printf("Gra w pokoju '%s' została zakończona zwycięstwem '%s'.\n", name.c_str(), winner->name.c_str());
+            printf("Gra w pokoju '%s' została zakończona.\n", name.c_str());
             
         }
         else
