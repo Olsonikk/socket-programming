@@ -24,6 +24,7 @@ class MathQuizClient:
         self.start_quiz_flag=False
         self.host = False
         self.rooms = []
+        self.brakpokoi = False
 
         self.listenForChat = False
         self.validate_command_s = self.root.register(self.limit_length_short)
@@ -84,6 +85,9 @@ class MathQuizClient:
 
         tk.Button(self.root, text="Create Room", command=self.create_room).pack(pady=10)
         tk.Button(self.root, text="Join Room", command=self.show_available_rooms).pack(pady=10)
+        print(self.brakpokoi)
+        if self.brakpokoi:
+            tk.Label(self.root, text="Brak pokoi do dołączenia", font=("Arial", 16)).pack(pady=20)
     
     def back_menu(self):
         self.rooms = []
@@ -135,6 +139,10 @@ class MathQuizClient:
             self.client_socket.sendall('1'.encode('utf-8') + b'\n')
             mess = self.client_socket.recv(1024).decode()
             mess = mess.splitlines()
+            if mess[0].split(" ")[0]=="Brak":
+                self.brakpokoi = True
+                self.choose_room_option()
+                return
             while "Dołącz" not in mess[-1]:
                 print("Jeszcze zbieram dane")
                 mess2 = self.client_socket.recv(1024).decode()
@@ -146,6 +154,7 @@ class MathQuizClient:
             mess = self.client_socket.recv(1024).decode()
             mess = mess.splitlines()
             if mess[0].split(" ")[0]=="Brak":
+                self.brakpokoi = True
                 self.choose_room_option()
                 return
             while "Dołącz do pokoju nr:" not in mess[-1]:
@@ -153,7 +162,7 @@ class MathQuizClient:
                 mess2 = self.client_socket.recv(1024).decode()
                 mess += mess2.splitlines()
             
-            
+        self.brakpokoi=False
         data=mess
         test = data[0][0]
         data.pop()
