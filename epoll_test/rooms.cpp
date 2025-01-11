@@ -148,6 +148,10 @@ public:
                         {
                             selectedRoom.addPlayerToRoom(this);
                             state = PlayerState::InRoom;
+                            if (selectedRoom.gameStarted)
+                            {
+                              state = PlayerState::AwaitingAnswer;
+                            }
                         }
                     }
                 }
@@ -727,6 +731,3 @@ int main(int argc, char **argv)
     close(server_fd);
     return 0;
 }
-
-
-
