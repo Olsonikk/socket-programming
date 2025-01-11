@@ -192,6 +192,7 @@ public:
             case PlayerState::InRoom:
                 {
                     if (input == "/leave") {
+                        big_points = 0;
                         leaveRoom(local_rooms);
                     }
                     else if (input == "/start")
