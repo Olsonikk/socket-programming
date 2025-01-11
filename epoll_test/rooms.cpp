@@ -11,6 +11,7 @@
 #include <sys/epoll.h> // Ensure epoll is included
 #include <algorithm>
 #include <list>
+#include <memory> // Add this include for shared_ptr
 
 using namespace std;
 
@@ -18,7 +19,8 @@ using namespace std;
 // list<Player> players; // Stare
 list<Player*> players; // Nowe
 
-vector<Room> rooms;
+// Zmień definicję rooms na vector<shared_ptr<Room>>:
+vector<shared_ptr<Room>> rooms;
 unsigned int Room::next_room_id = 1;
 
 // Helper function to check if a name is taken
@@ -27,13 +29,13 @@ unsigned int Room::next_room_id = 1;
 void printRooms(int fd)
 {
     unsigned short int iterator = 1;
-    for (const auto &room : rooms)
+    for (auto &room : rooms)
     {
-        cout << "Room ID: " << room.room_id << ", Name: " << room.name << endl;
+        cout << "Room ID: " << room->room_id << ", Name: " << room->name << endl;
         if(fd > 2)
         {
             // Dodano liczbę graczy w pokoju
-            string msg = to_string(iterator) + " name: " + room.name + " game status:" + to_string(room.gameStarted) + " players: " + to_string(room.players_in_room.size()) + "/" + to_string(Room::MAX_PLAYERS) + "\n";
+            string msg = to_string(iterator) + " name: " + room->name + " game status:" + to_string(room->gameStarted) + " players: " + to_string(room->players_in_room.size()) + "/" + to_string(Room::MAX_PLAYERS) + "\n";
             write(fd, msg.c_str(), msg.length());
             iterator++;
         }
@@ -89,8 +91,10 @@ public:
     return false;
     }
 
-    void handleInput(const string& input, vector<Room>& local_rooms)
+    // Zmień sygnaturę handleInput tak by przyjmowała vector<shared_ptr<Room>>&
+    void handleInput(const string& input, vector<shared_ptr<Room>>& local_rooms)
     {
+        //local_rooms.reserve(2);
         switch(state)
         {
             case PlayerState::AwaitingName:
@@ -128,15 +132,15 @@ public:
                     }
                     else
                     {
-                        Room& selectedRoom = local_rooms[room_number-1];
-                        // if(selectedRoom.gameStarted)
+                        auto selectedRoom = local_rooms[room_number - 1];
+                        // if(selectedRoom->gameStarted)
                         // {
                         //     string error_msg = "Gra w tym pokoju jest już rozpoczęta.\n";
                         //     write(fd, error_msg.c_str(), error_msg.length());
                         //     write(fd, "Dołącz do pokoju nr: ", 22);
                         //     // Remain in ChoosingRoom state
                         // }
-                        if(selectedRoom.players_in_room.size() >= Room::MAX_PLAYERS)
+                        if(selectedRoom->players_in_room.size() >= Room::MAX_PLAYERS)
                         {
                             string error_msg = "Pokój jest pełny. Nie możesz dołączyć.\n";
                             write(fd, error_msg.c_str(), error_msg.length());
@@ -145,9 +149,9 @@ public:
                         }
                         else
                         {
-                            selectedRoom.addPlayerToRoom(this);
+                            selectedRoom->addPlayerToRoom(this);
                             state = PlayerState::InRoom;
-                            if (selectedRoom.gameStarted)
+                            if (selectedRoom->gameStarted)
                             {
                               state = PlayerState::AwaitingAnswer;
                             }
@@ -168,7 +172,7 @@ public:
                     // Sprawdzenie, czy nazwa pokoju jest już używana:
                     bool nameTaken = false;
                     for (auto &r : local_rooms) {
-                        if (r.name == input) {
+                        if (r->name == input) {
                             nameTaken = true;
                             break;
                         }
@@ -181,10 +185,10 @@ public:
                         break;
                     }
 
-                    local_rooms.emplace_back();
-                    local_rooms.back().name = input;
-                    local_rooms.back().room_id = Room::next_room_id++;
-                    local_rooms.back().addPlayerToRoom(this);
+                    local_rooms.emplace_back(std::make_shared<Room>());
+                    local_rooms.back()->name = input;
+                    local_rooms.back()->room_id = Room::next_room_id++;
+                    local_rooms.back()->addPlayerToRoom(this);
                     state = PlayerState::InRoom;
                     break;
                 }
@@ -280,15 +284,16 @@ public:
         }
     }
 
-    void leaveRoom(vector<Room>& local_rooms)
+    // Zmień sygnaturę leaveRoom tak by przyjmowała vector<shared_ptr<Room>>&
+    void leaveRoom(vector<shared_ptr<Room>>& local_rooms)
     {
         // Znajdź pokój, do którego gracz należy
-        Room* currentRoom = nullptr;
+        shared_ptr<Room> currentRoom = nullptr;
         for (auto &room : local_rooms)
         {
-            if (room.room_id == room_id)
+            if (room->room_id == room_id)
             {
-                currentRoom = &room;
+                currentRoom = room;
                 break;
             }
         }
@@ -318,15 +323,16 @@ public:
         }
     }
 
-    void sendMessageToRoom(const string& message, vector<Room>& local_rooms, bool server_notification = false)
+    // Zmień sygnaturę sendMessageToRoom tak by przyjmowała vector<shared_ptr<Room>>&
+    void sendMessageToRoom(const string& message, vector<shared_ptr<Room>>& local_rooms, bool server_notification = false)
     {
         // Find the room the player is currently in
-        Room* currentRoom = nullptr;
+        shared_ptr<Room> currentRoom = nullptr;
         for (auto &room : local_rooms)
         {
-            if (room.room_id == room_id)
+            if (room->room_id == room_id)
             {
-                currentRoom = &room;
+                currentRoom = room;
                 break;
             }
         }
@@ -569,9 +575,9 @@ void Room::removePlayerFromRoom(Player* player_to_remove)
     {
         cout << "USUNIETO POKOJ" <<endl;
         // Znajdź indeks pokoju w globalnej liście
-        extern vector<Room> rooms; // Upewnij się, że 'rooms' jest zadeklarowane jako extern
+        extern vector<shared_ptr<Room>> rooms; // Upewnij się, że 'rooms' jest zadeklarowane jako extern
         auto room_it = std::find_if(rooms.begin(), rooms.end(),
-            [this](const Room& r) { return r.room_id == this->room_id; });
+            [this](const shared_ptr<Room>& r) { return r->room_id == this->room_id; });
 
         if (room_it != rooms.end())
         {
