@@ -1,3 +1,17 @@
+## Instrukcja budowania serwera
+1. ```cd epoll_test```
+2. ```make```
+
+## Klient
+Plik klient.exe został stworzony przy użyciu pyinstaller'a. Aby włączyć klienta należy uruchomić plik klient.exe.
+
+
+## FAQ
+### Jak działa punktacja?
+Punty dzielą się na duże i małe. Gdy przynajmniej 1 gracz zdobędzie 10 małych punktów, punkty wszystkich graczy resetują się, a zwycięza/zwycięzcy dostają po 1 dużym punkcie. \
+Punkty małe zdobywa się poprzez poprawne wykonanie działania matematycznego według wzoru: 1+<bonus_first>+<bonus_time>, gdzie bonus_first to premia +2 małe punkty dla gracza, który poprawnie odpowiedział najszybciej. \
+Natomiast <bonus_time> to 1 dodatkowy mały punkt za każde pozostałe 10 sekund czasu. (gracze mają 30 sekund na odpowiedź)
+
 # Matematyczny Wyścig - Opis Projektu
 
 ## **Opis**
