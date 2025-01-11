@@ -64,7 +64,7 @@ class MathQuizClient:
             
 
     def submit_nick(self):
-        self.nick = self.nick_entry.get().strip()
+        self.nick = self.nick_entry.get().strip().replace(" ", "_")
         if self.nick:
             self.client_socket.sendall(self.nick.encode('utf-8') + b'\n')
             expect = 4
