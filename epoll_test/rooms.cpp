@@ -94,7 +94,6 @@ public:
     // Zmień sygnaturę handleInput tak by przyjmowała vector<shared_ptr<Room>>&
     void handleInput(const string& input, vector<shared_ptr<Room>>& local_rooms)
     {
-        //local_rooms.reserve(2);
         switch(state)
         {
             case PlayerState::AwaitingName:
@@ -304,11 +303,11 @@ public:
             currentRoom->removePlayerFromRoom(this);
 
             // Powiadomienie innych graczy w pokoju
-            string leaveMsg = name + " opuścił pokój.\n";
-            for (const auto& player : currentRoom->players_in_room)
-            {
-                write(player->fd, leaveMsg.c_str(), leaveMsg.length());
-            }
+            // string leaveMsg = name + " opuścił pokój.\n";
+            // for (const auto& player : currentRoom->players_in_room)
+            // {
+            //     write(player->fd, leaveMsg.c_str(), leaveMsg.length());
+            // }
 
             // Zmień stan gracza na AwaitingMenu
             state = PlayerState::AwaitingMenu;
@@ -444,8 +443,7 @@ void Room::addPlayerToRoom(Player* player_to_add)
     // Ustaw lidera jeśli to pierwszy gracz
     if (players_in_room.size() == 1)
     {
-        //setLeader(player_to_add);
-        cout << "XD" << endl;
+        setLeader(player_to_add);
     }
 }
 
@@ -561,8 +559,7 @@ void Room::removePlayerFromRoom(Player* player_to_remove)
     {
         if (!players_in_room.empty())
         {
-            //setLeader(players_in_room.front());
-            cout << "XD2" <<endl;
+            setLeader(players_in_room.front());
         }
         else
         {
