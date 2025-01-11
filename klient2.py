@@ -17,8 +17,6 @@ class MathQuizClient:
         self.client_socket = None
         self.server_address = server_address
         self.message_queue = queue.Queue()
-
-        self.flag = False
         self.connect_to_server()
         self.running_time=False
         self.start_quiz_flag=False
@@ -128,7 +126,6 @@ class MathQuizClient:
 
     def show_available_rooms(self):
         if self.rooms:
-            print("juz cos bylo")
             self.rooms = []
             self.client_socket.sendall('/back'.encode('utf-8') + b'\n')
             expect = 4
@@ -150,7 +147,7 @@ class MathQuizClient:
                 mess2 = self.client_socket.recv(1024).decode()
                 mess += mess2.splitlines()
         else:
-            print("pierwszy raz")
+
             self.rooms = []
             self.client_socket.sendall('1'.encode('utf-8') + b'\n')
             mess = self.client_socket.recv(1024).decode()
@@ -171,9 +168,6 @@ class MathQuizClient:
         if test == '1':
             for line in data:
                 parts = line.split(" ")
-                print(parts)
-                print(parts[2])
-                print(parts[4][-1])
                 self.rooms.append([parts[2], parts[4][-1], parts[-1]])
         else:
             self.choose_room_option()
@@ -224,8 +218,7 @@ class MathQuizClient:
         mess = "dołączył do pokoju."
         self.room = room_name
         if room_status=="1":
-            print("wchodze")
-            self.client_socket.sendall('wrond answer'.encode() + b'\n')
+            self.client_socket.sendall('wrong answer'.encode() + b'\n')
             self.client_socket.sendall('/listplayers'.encode() + b'\n')
             data = self.client_socket.recv(1024).decode().replace("\x00", "")
             data = data.splitlines()
@@ -235,14 +228,12 @@ class MathQuizClient:
                 data2 = data2.splitlines()
                 for line in data2:
                     data.append(line)
-                
-            print(data)
+            
             data.pop(0)
             data.pop(0)
             data.pop(0)
             data.pop()
-            print("dane")
-            print(data)
+
             if self.nick == data[0].split(" ")[2]:
                 self.host = True
             else:
@@ -319,16 +310,14 @@ class MathQuizClient:
         data = self.client_socket.recv(1024).decode()
         data = data.splitlines()
         while "END" not in data[-1]:
-            print("ENDIZZISA" + data)
             data2 = self.client_socket.recv(1024).decode()
             data2 = data2.splitlines()
             for line in data2:
                 data.append(line)
-        print(data)
         data.pop(0)
         data.pop(0)
         data.pop()
-        print(data[0].split(" ")[2])
+
         if self.nick == data[0].split(" ")[2]:
             self.host = True
             print("jestem hostem")
@@ -360,7 +349,6 @@ class MathQuizClient:
                 if message:
                     self.message_queue.put(message)
         print("koniec listen for mess")
-        self.flag = False
                     
     def update_chat(self):
         try:

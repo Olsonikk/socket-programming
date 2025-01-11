@@ -12,19 +12,15 @@
 #include <sys/epoll.h> // Ensure epoll is included
 #include <algorithm>
 #include <list>
-#include <memory> // Add this include for shared_ptr
+#include <memory>
 
 using namespace std;
 
-// Zmiana typu listy graczy na wskaźniki
-// list<Player> players; // Stare
-list<Player*> players; // Nowe
+list<Player*> players; 
 
-// Zmień definicję rooms na vector<shared_ptr<Room>>:
 vector<shared_ptr<Room>> rooms;
 unsigned int Room::next_room_id = 1;
 
-// Helper function to check if a name is taken
 
 
 void printRooms(int fd)
@@ -35,7 +31,6 @@ void printRooms(int fd)
         cout << "Room ID: " << room->room_id << ", Name: " << room->name << endl;
         if(fd > 2)
         {
-            // Dodano liczbę graczy w pokoju
             string msg = to_string(iterator) + " name: " + room->name + " game status:" + to_string(room->gameStarted) + " players: " + to_string(room->players_in_room.size()) + "/" + to_string(Room::MAX_PLAYERS) + "\n";
             write(fd, msg.c_str(), msg.length());
             iterator++;
@@ -133,13 +128,6 @@ public:
                     else
                     {
                         auto selectedRoom = local_rooms[room_number - 1];
-                        // if(selectedRoom->gameStarted)
-                        // {
-                        //     string error_msg = "Gra w tym pokoju jest już rozpoczęta.\n";
-                        //     write(fd, error_msg.c_str(), error_msg.length());
-                        //     write(fd, "Dołącz do pokoju nr: ", 22);
-                        //     // Remain in ChoosingRoom state
-                        // }
                         if(selectedRoom->players_in_room.size() >= Room::MAX_PLAYERS)
                         {
                             string error_msg = "Pokój jest pełny. Nie możesz dołączyć.\n";
@@ -169,8 +157,6 @@ public:
                         break;
                     }
 
-                    // Sprawdzenie długości nazwy
-                    cout << input.size() << endl;
                     if (input.size() > 16 || input.size() <=0) {
                         string tooLongMsg = "Nazwa pokoju nie może mieć więcej niż 16 znaków.\nPodaj nazwę pokoju (max 16 znaków): ";
                         write(fd, tooLongMsg.c_str(), tooLongMsg.size());
@@ -214,7 +200,6 @@ public:
                         {
                             if (room_in->players_in_room.size() < 2) {
                                 string errorMsg = "Nie można rozpocząć gry. Potrzebnych jest co najmniej dwóch graczy.\n";
-                                cout << to_string(room_in->players_in_room.size());
                                 write(fd, errorMsg.c_str(), errorMsg.length());
                                 printf("Gracz '%s' próbował rozpocząć grę, ale jest tylko %zu graczy w pokoju.\n", name.c_str(), room_in->players_in_room.size());
                             }
@@ -416,10 +401,6 @@ void Room::setLeader(Player* newLeader)
     leader = newLeader;
     string leaderMsg = leader->name + " został(a) wybrany(a) na lidera pokoju.\n";
     cout << leaderMsg << endl;
-    // for (const auto& player : players_in_room)
-    // {
-    //     write(player->fd, leaderMsg.c_str(), leaderMsg.length());
-    // }
 }
 
 Player* Room::getLeader() const
@@ -443,40 +424,12 @@ void Room::addPlayerToRoom(Player* player_to_add)
         }
     }
 
-    // Optionally, notify the joining player of existing members
-    // string welcomeMsg = "Witaj w pokoju " + name + "!\n";
-    // write(player_to_add->fd, welcomeMsg.c_str(), welcomeMsg.length());
-
     // Ustaw lidera jeśli to pierwszy gracz
     if (players_in_room.size() == 1)
     {
         setLeader(player_to_add);
     }
 }
-
-// void Room::listPlayers(int fd) const
-// {
-//     string message;
-//     // Pre-allocate some space to avoid repeated resizing
-//     cout << room_id << endl;
-//     message += "Players in room " + name + " (ID: " + to_string(room_id) + "):\n";
-
-//     for (const auto &player : players_in_room)
-//     {
-//         if (player == leader)
-//         {
-//             // message += "Player name: " + player->name + " (lider), Player ID: " + to_string(player->fd) + "\n";
-//             message += "Player name: " + player->name + " (lider), Points: " + to_string(player->points) + "\n";
-//         }
-//         else
-//         {
-//             //message += "Player name: " + player->name + ", Player ID: " + to_string(player->fd) + "\n";
-//             message += "Player name: " + player->name + ", Points: " + to_string(player->points) + "\n";
-//         }
-//     }
-//     message += "END\n";
-//     write(fd, message.c_str(), message.size());
-// }
 
 void Room::ProceedQuestion(string &question_str, int &correctAnswer)
 {
@@ -487,7 +440,6 @@ void Room::ProceedQuestion(string &question_str, int &correctAnswer)
     cout << question_str << endl;
     playersAnsweredCount = 0; // Reset counter
     bonusGiven = false; // Reset bonus flag for new question
-    //sendMessageToRoom("Pytanie: " + q.getQuestionText(), local_rooms, true);
 }   
 
 void Room::playerAnswered()
@@ -642,7 +594,6 @@ int main(int argc, char **argv)
 
     const int MAX_EVENTS = 10;
     struct epoll_event events[MAX_EVENTS];
-    //char welcomeMsg[] = "Witaj graczu! Podaj imie: \n";
 
     while (true) {
         int n = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
@@ -755,7 +706,6 @@ int main(int argc, char **argv)
         }
     }
 
-    // Zwolnienie pamięci dla wszystkich graczy przed zamknięciem
     for (auto player : players) {
         delete player;
     }
