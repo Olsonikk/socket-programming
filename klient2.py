@@ -26,6 +26,7 @@ class MathQuizClient:
         self.rooms = []
         self.brakpokoi = False
         self.cant_start = False
+        self.mess_start = ""
 
         self.listenForChat = False
         self.validate_command_s = self.root.register(self.limit_length_short)
@@ -120,7 +121,7 @@ class MathQuizClient:
         self.room_entry.focus()
     
     def submit_create_room(self):
-        self.room = self.room_entry.get()
+        self.room = self.room_entry.get().strip().replace(" ", "_")
         self.client_socket.sendall(self.room.encode('utf-8') + b'\n')
         self.show_room_menu()
 			
@@ -249,7 +250,7 @@ class MathQuizClient:
             self.players.append([data[0].split(" ")[2], data[0].split(" ")[5]])
             data.pop(0)
             for line in data:
-                self.players.append([line.split(" ")[2], line.split(" ")[4]])
+                self.players.append([line.split(" ")[2][:-1], line.split(" ")[4]])
             
             self.client_socket.sendall('/start'.encode() + b'\n')
             self.start_quiz_quest()
@@ -340,7 +341,8 @@ class MathQuizClient:
                 print(f"Received message: {message}")
                 if "dołączył do pokoju." in message or "opuścił pokój." in message:
                     self.show_players_in_room()
-                elif "ZACZYNAM QUIZ" in message and not self.host:
+                elif message.startswith("Pokój ID: ") and not self.host:
+                    self.mess_start = message
                     self.start_quiz_flag=True
                     self.listenForChat=False
                     break
@@ -391,7 +393,6 @@ class MathQuizClient:
         self.choose_room_option()
         
     def start_quiz_host(self):
-        self.client_socket.sendall("ZACZYNAM QUIZ".encode() + b'\n')
         self.start_quiz()
         
     def start_quiz(self):
@@ -400,12 +401,14 @@ class MathQuizClient:
         self.listenForChat=False
         self.listen_thread.join()
         self.listen_thread = None
-        
         if self.host:
             self.client_socket.sendall("/start".encode() + b'\n')
-        
-        data = self.client_socket.recv(1024).decode()
+        if self.start_quiz_flag:
+            data = self.mess_start
+        else:
+            data = self.client_socket.recv(1024).decode()
         data = data.splitlines()
+        self.start_quiz_flag = False
         print(data)
         if data[0][0] == "N" or data[0][0] == "T":
             self.cant_start = True
@@ -560,7 +563,12 @@ class MathQuizClient:
         self.time_thread.start()
         
     def submit_answer(self):
-        self.answer = self.answer_input.get()
+        time_str = str(self.time)
+        if len(time_str)==4:
+            self.answer = self.answer_input.get() + time_str[0]
+        else:
+            self.answer = self.answer_input.get() + "0"
+            
         if not self.answer:
             self.answer = "wrong"
         self.running_time = False
