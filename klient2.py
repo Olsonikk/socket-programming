@@ -277,6 +277,11 @@ class MathQuizClient:
 
         tk.Button(self.frame1, text="Leave", command=self.leave_room).grid(row=0, column=0, padx=10, pady=10, sticky="nw")
 
+        if self.listenForChat:
+            self.listenForChat = False
+            self.listen_thread.join()
+            self.listen_thread = None
+
         self.show_players_in_room()
         if self.host:
             stateB = "normal"
@@ -314,6 +319,7 @@ class MathQuizClient:
         data = self.client_socket.recv(1024).decode()
         data = data.splitlines()
         while "END" not in data[-1]:
+            print("ENDIZZISA" + data)
             data2 = self.client_socket.recv(1024).decode()
             data2 = data2.splitlines()
             for line in data2:
@@ -344,7 +350,8 @@ class MathQuizClient:
                 message = self.client_socket.recv(1024).decode()
                 print(f"Received message: {message}")
                 if "dołączył do pokoju." in message or "opuścił pokój." in message:
-                    self.show_players_in_room()
+                    # Wywołanie planowane w wątku głównym zamiast bezpośrednio
+                    self.root.after(0, self.show_room_menu)
                 elif message.startswith("Pokój ID: ") and not self.host:
                     self.mess_start = message
                     self.start_quiz_flag=True
@@ -595,7 +602,6 @@ class MathQuizClient:
             self.answer = "wrong 0"
         self.running_time = False
         self.client_socket.sendall(self.answer.encode() + b'\n')
-        self.time_thread.join()
         self.start_quiz_quest()
         
     def timer(self):
