@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import simpledialog
-import serwerRaw as Serwer
 import time
 import socket
 import select
@@ -421,7 +420,6 @@ class MathQuizClient:
             self.message_queue.put("Nie mozna rozpoczac gry")
             return
         while "Pytanie: " not in data[-1]:
-            print(data)
             data2 = self.client_socket.recv(1024).decode()
             data2 = data2.splitlines()
             for line in data2:
@@ -431,7 +429,6 @@ class MathQuizClient:
         data.pop(0)
         
         self.question_text = data[-1].replace("Pytanie: ", "")
-        print(self.question_text[0])
 
 
         self.root.grid_columnconfigure(0, weight=1)
@@ -497,16 +494,13 @@ class MathQuizClient:
                 break
             if "Koniec gry!" in item:
                 while "END" not in data[-1]:
-                    print(data)
                     data2 = self.client_socket.recv(1024).decode()
                     data2 = data2.splitlines()
                     for line in data2:
                         data.append(line)
-                print("TUTAAAAJ")
                 self.show_room_menu()
                 return
         while "Pytanie: " not in data[-1] and "Koniec gry!" not in data:
-            print(data)
             data3 = self.client_socket.recv(1024).decode()
             data3 = data3.splitlines()
             for line in data3:
@@ -556,8 +550,6 @@ class MathQuizClient:
         self.answer_input.bind("<Return>", lambda event: self.submit_answer())
 
         punkty=[]
-        print("SIEMA")
-        print(data[0].split(" "))
         punkty.append(data[0].split(" ")[5])
         data.pop(0)
         data.pop(-1)
