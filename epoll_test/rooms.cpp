@@ -4,6 +4,7 @@
 #include <unistd.h> 
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <poll.h>
 #include <cstring>
@@ -264,10 +265,15 @@ public:
                     if (room_in) {
                         cout << input.c_str() << endl;
                         Question q = room_in->currentQuestion;
-                        if (atoi(input.c_str()) == q.getAnswer())
+                        int answer = 0;
+                        int bonus_time = 0;
+                        istringstream iss(input);
+                        iss >> answer >> bonus_time;
+                        if (answer == q.getAnswer())
                         {
                             write(fd, "Dobra odpowiedź!\n", 19);
                             points += 1; // Przyznanie 1 punktu za poprawną odpowiedź
+                            points += bonus_time;
 
                             // Sprawdzenie, czy bonus został już przyznany
                             if (!room_in->bonusGiven) {
@@ -310,14 +316,6 @@ public:
         {
             // Usuń gracza z pokoju
             currentRoom->removePlayerFromRoom(this);
-
-            // Powiadomienie innych graczy w pokoju
-            // string leaveMsg = name + " opuścił pokój.\n";
-            // for (const auto& player : currentRoom->players_in_room)
-            // {
-            //     write(player->fd, leaveMsg.c_str(), leaveMsg.length());
-            // }
-
             // Zmień stan gracza na AwaitingMenu
             state = PlayerState::AwaitingMenu;
             sendMenu();
