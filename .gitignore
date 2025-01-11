@@ -2,3 +2,4 @@
 __pycache__
 epoll_test/rooms
 epoll_test/serwer
+epoll_test/serwer_debug

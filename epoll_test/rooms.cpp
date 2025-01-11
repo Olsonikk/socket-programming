@@ -168,6 +168,15 @@ public:
                         break;
                     }
 
+                    // Sprawdzenie długości nazwy
+                    cout << input.size() << endl;
+                    if (input.size() > 16 || input.size() <=0) {
+                        string tooLongMsg = "Nazwa pokoju nie może mieć więcej niż 16 znaków.\nPodaj nazwę pokoju (max 16 znaków): ";
+                        write(fd, tooLongMsg.c_str(), tooLongMsg.size());
+                        // Zostajemy w stanie CreatingRoom
+                        break;
+                    }
+
                     // Sprawdzenie, czy nazwa pokoju jest już używana:
                     bool nameTaken = false;
                     for (auto &r : local_rooms) {
