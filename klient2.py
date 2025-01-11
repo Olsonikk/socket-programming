@@ -571,12 +571,12 @@ class MathQuizClient:
     def submit_answer(self):
         time_str = str(self.time)
         if len(time_str)==4:
-            self.answer = self.answer_input.get() + time_str[0]
+            self.answer = self.answer_input.get()+ " " + time_str[0]
         else:
-            self.answer = self.answer_input.get() + "0"
-            
+            self.answer = self.answer_input.get() + " 0"
+        print(self.answer)
         if not self.answer:
-            self.answer = "wrong"
+            self.answer = "wrong 0"
         self.running_time = False
         self.client_socket.sendall(self.answer.encode() + b'\n')
         self.time_thread.join()
