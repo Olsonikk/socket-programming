@@ -25,6 +25,7 @@ class MathQuizClient:
         self.host = False
         self.rooms = []
         self.brakpokoi = False
+        self.cant_start = False
 
         self.listenForChat = False
         self.validate_command_s = self.root.register(self.limit_length_short)
@@ -409,8 +410,9 @@ class MathQuizClient:
         data = data.splitlines()
         print(data)
         if data[0][0] == "N" or data[0][0] == "T":
-            print("TUTAJ 123")
+            self.cant_start = True
             self.show_room_menu()
+            self.message_queue.put("Nie mozna rozpoczac gry")
             return
         while "Pytanie: " not in data[-1]:
             print(data)
