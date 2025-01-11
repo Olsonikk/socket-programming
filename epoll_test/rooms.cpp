@@ -57,7 +57,6 @@ public:
     string name;
     unsigned int room_id = 0;
     int fd;
-    pollfd pfd;
     PlayerState state = PlayerState::AwaitingName; // Initialize to AwaitingName
     string readBuffer; // Buffer to accumulate incoming data
     Room* room_in = nullptr;
@@ -165,19 +164,29 @@ public:
                         state = PlayerState::AwaitingMenu;
                         break;
                     }
-                    
+
+                    // Sprawdzenie, czy nazwa pokoju jest już używana:
+                    bool nameTaken = false;
+                    for (auto &r : local_rooms) {
+                        if (r.name == input) {
+                            nameTaken = true;
+                            break;
+                        }
+                    }
+                    if (nameTaken) {
+                        string error_msg = "Nazwa pokoju jest już zajęta.\n";
+                        write(fd, error_msg.c_str(), error_msg.size());
+                        sendMenu();
+                        state = PlayerState::AwaitingMenu;
+                        break;
+                    }
+
                     local_rooms.emplace_back();
                     local_rooms.back().name = input;
                     local_rooms.back().room_id = Room::next_room_id++;
-                    
-                    // Dodanie gracza do nowo utworzonego pokoju
                     local_rooms.back().addPlayerToRoom(this);
-                    
-                    // Powiadomienie gracza o utworzeniu i dołączeniu do pokoju
-                    //write(fd, "Pokój został utworzony i dołączono do niego.\n", 50);
-                    
-                    // Zmiana stanu na InRoom
                     state = PlayerState::InRoom;
+                    break;
                 }
                 break;
             
@@ -225,7 +234,7 @@ public:
                     else if (input == "/listrooms") printRooms(fd);
                     else if (input == "/listplayers") 
                     {
-                       room_in->displayAllPlayers(fd, false);
+                       room_in->displayAllPlayers(fd, true);
                     }
                     else if (input == "/ranking")
                     {
@@ -370,6 +379,7 @@ public:
         }
         else if(input == "2")
         {
+
             state = PlayerState::CreatingRoom;
             write(fd, make_room_msg.c_str(), make_room_msg.length());
         }
@@ -428,7 +438,8 @@ void Room::addPlayerToRoom(Player* player_to_add)
     // Ustaw lidera jeśli to pierwszy gracz
     if (players_in_room.size() == 1)
     {
-        setLeader(player_to_add);
+        //setLeader(player_to_add);
+        cout << "XD" << endl;
     }
 }
 
@@ -532,6 +543,11 @@ void Room::removePlayerFromRoom(Player* player_to_remove)
     {
         players_in_room.erase(it);
         cout << "Gracz " << player_to_remove->name << " został usunięty z pokoju " << name << "." << endl;
+        string leaveMsg = player_to_remove->name + " opuścił pokój.\n";
+        for (const auto& player : players_in_room)
+        {
+            write(player->fd, leaveMsg.c_str(), leaveMsg.length());
+        }
     }
 
     // Jeśli usunięto lidera, ustaw nowego lidera
@@ -539,7 +555,8 @@ void Room::removePlayerFromRoom(Player* player_to_remove)
     {
         if (!players_in_room.empty())
         {
-            setLeader(players_in_room.front());
+            //setLeader(players_in_room.front());
+            cout << "XD2" <<endl;
         }
         else
         {
@@ -550,6 +567,7 @@ void Room::removePlayerFromRoom(Player* player_to_remove)
     // Jeśli pokój jest pusty, opcjonalnie usuń pokój z listy
     if (players_in_room.empty())
     {
+        cout << "USUNIETO POKOJ" <<endl;
         // Znajdź indeks pokoju w globalnej liście
         extern vector<Room> rooms; // Upewnij się, że 'rooms' jest zadeklarowane jako extern
         auto room_it = std::find_if(rooms.begin(), rooms.end(),
@@ -691,9 +709,13 @@ int main(int argc, char **argv)
                         else if (bytes_read == 0)
                         {
                             // Client disconnected
+                            if ((*it)->room_in)
+                            {
+                                (*it)->room_in->removePlayerFromRoom(*it);
+                            }
                             (*it)->quitGame();
                             epoll_ctl(epoll_fd, EPOLL_CTL_DEL, client_fd, NULL);
-                            delete *it; // Zwolnienie pamięci
+                            delete *it;
                             players.erase(it);
                             break;
                         }
