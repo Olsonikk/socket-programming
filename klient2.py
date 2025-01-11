@@ -371,6 +371,9 @@ class MathQuizClient:
         message = self.message_input.get().strip()
 
         if message:
+            if message[0] == "/":
+                self.message_input.delete(0, tk.END)
+                return
             self.chat_display.config(state=tk.NORMAL) 
             self.chat_display.insert(tk.END, f"You: {message}\n") 
             self.chat_display.see(tk.END)
@@ -393,7 +396,10 @@ class MathQuizClient:
         self.choose_room_option()
         
     def start_quiz_host(self):
-        self.start_quiz()
+        if self.host:
+            self.start_quiz()
+        else:
+            self.show_room_menu()
         
     def start_quiz(self):
         for widget in self.root.winfo_children():
