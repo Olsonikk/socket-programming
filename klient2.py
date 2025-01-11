@@ -25,6 +25,7 @@ class MathQuizClient:
         self.host = False
         self.rooms = []
         self.brakpokoi = False
+        self.cant_start = False
 
         self.listenForChat = False
         self.validate_command_s = self.root.register(self.limit_length_short)
@@ -326,7 +327,7 @@ class MathQuizClient:
         self.players.append([data[0].split(" ")[2], data[0].split(" ")[5]])
         data.pop(0)
         for line in data:
-            self.players.append([line.split(" ")[2], line.split(" ")[4]])
+            self.players.append([line.split(" ")[2][:-1], line.split(" ")[4]])
         for i, player in enumerate(self.players):
             tk.Label(self.frame2, text=player[0] + ": "+player[1]+"pkt", font=("Arial", 14)).grid(row=1 + i, column=0, sticky="ew", padx=5, pady=5)
         self.listenForChat = True
@@ -337,10 +338,8 @@ class MathQuizClient:
             if ready_to_read:
                 message = self.client_socket.recv(1024).decode()
                 print(f"Received message: {message}")
-                if "dołączył do pokoju." in message:
-                    player = message.split(" ")[0]
-                    tk.Label(self.frame2, text=player + ": 0pkt", font=("Arial", 14)).grid(row=1 + len(self.players), column=0, sticky="ew", padx=5, pady=5)
-                    self.players.append([player, "0"])
+                if "dołączył do pokoju." in message or "opuścił pokój." in message:
+                    self.show_players_in_room()
                 elif "ZACZYNAM QUIZ" in message and not self.host:
                     self.start_quiz_flag=True
                     self.listenForChat=False
@@ -409,8 +408,9 @@ class MathQuizClient:
         data = data.splitlines()
         print(data)
         if data[0][0] == "N" or data[0][0] == "T":
-            print("TUTAJ 123")
+            self.cant_start = True
             self.show_room_menu()
+            self.message_queue.put("Nie mozna rozpoczac gry")
             return
         while "Pytanie: " not in data[-1]:
             print(data)
