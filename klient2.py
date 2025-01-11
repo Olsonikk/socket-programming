@@ -277,8 +277,13 @@ class MathQuizClient:
 
         tk.Button(self.frame1, text="Leave", command=self.leave_room).grid(row=0, column=0, padx=10, pady=10, sticky="nw")
 
+        self.show_players_in_room()
+        if self.host:
+            stateB = "normal"
+        else:
+            stateB = "disabled"
         tk.Label(self.frame1, text=f"Welcome to {self.room}!", font=("Arial", 20)).grid(row=0, column=0, pady=(50,10))
-        tk.Button(self.frame1, text="Start Quiz", command=self.start_quiz_host).grid(row=1, column=0, pady=5)
+        tk.Button(self.frame1, text="Start Quiz", state=stateB, command=self.start_quiz_host).grid(row=1, column=0, pady=5)
 
         self.chat_display = tk.Text(self.frame1, width=40, height=10, state=tk.DISABLED)
         self.chat_display.grid(row=2, column=0, padx=10, pady=0)
@@ -293,7 +298,6 @@ class MathQuizClient:
         tk.Button(self.frame1, text="Chat", command=self.chat).grid(row=3, column=1, pady=5)
         self.message_input.bind("<Return>", lambda event: self.chat())
 
-        self.show_players_in_room()
         self.update_chat()
         
         self.listen_thread = threading.Thread(target=self.listen_for_messages)
@@ -491,22 +495,30 @@ class MathQuizClient:
             for line in data2:
                 data.append(line)
         
-        if data[1][0] == "K":
-            while "END" not in data[-1]:
-                print(data)
-                data2 = self.client_socket.recv(1024).decode()
-                data2 = data2.splitlines()
-                for line in data2:
-                    data.append(line)
-            print("TUTAAAAJ")
+        for i, item in enumerate(data):
+            if "dołączył do pokoju." in item:
+                self.players.append([data[i].split(" ")[0], "0"])
+                data.pop(i)
+                break
+            if "Koniec gry!" in item:
+                while "END" not in data[-1]:
+                    print(data)
+                    data2 = self.client_socket.recv(1024).decode()
+                    data2 = data2.splitlines()
+                    for line in data2:
+                        data.append(line)
+                print("TUTAAAAJ")
+                self.show_room_menu()
+                return
+        while "Pytanie: " not in data[-1] and "Koniec gry!" not in data:
+            print(data)
+            data3 = self.client_socket.recv(1024).decode()
+            data3 = data3.splitlines()
+            for line in data3:
+                data.append(line)
+        if "Koniec gry!" in data:
             self.show_room_menu()
             return
-        while "Pytanie: " not in data[-1]:
-            print(data)
-            data2 = self.client_socket.recv(1024).decode()
-            data2 = data2.splitlines()
-            for line in data2:
-                data.append(line)
                 
         for i, item in enumerate(data):
             if "dołączył do pokoju." in item:
@@ -573,7 +585,11 @@ class MathQuizClient:
         if len(time_str)==4:
             self.answer = self.answer_input.get()+ " " + time_str[0]
         else:
-            self.answer = self.answer_input.get() + " 0"
+            self.answer = self.answer_input.get()
+            if not self.answer:
+                self.answer = "wrong 0"
+            else:
+                self.answer = self.answer+ " 0"
         print(self.answer)
         if not self.answer:
             self.answer = "wrong 0"
