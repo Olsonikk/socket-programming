@@ -6,3 +6,6 @@ main:
 listen: SHELL:=/bin/bash
 listen:
 	socat - tcp:localhost:2222
+
+debug:
+	g++ -g rooms.cpp question.cpp -o serwer_debug

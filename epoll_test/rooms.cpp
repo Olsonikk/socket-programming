@@ -90,33 +90,6 @@ public:
     return false;
     }
 
-    void displayAllPlayers(int fd, bool which_points=false)
-    {
-        //which_points --> True = big points
-        // Tworzenie wiadomości z listą graczy i ID pokoju
-        string message = "Pokój ID: " + to_string(room_id) + ", Nazwa: " + name + "\n";
-        message += "Lista graczy:\n";
-        if(!which_points)
-        {
-            for (const auto& player : room_in->players_in_room)
-            {
-                message += " - " + player->name + " (Punkty: " + to_string(player->points) + ")\n";
-            }
-        }
-        else
-        {
-            for (const auto& player : room_in->players_in_room)
-            {
-                message += " - " + player->name + " (Punkty: " + to_string(player->big_points) + ")\n";
-            }
-        }
-        
-        message += "END\n";
-    
-        // Wysyłanie wiadomości do klienta
-        write(fd, message.c_str(), message.length());
-    }
-
     void handleInput(const string& input, vector<Room>& local_rooms)
     {
         switch(state)
@@ -226,7 +199,7 @@ public:
                                 room_in->ProceedQuestion(question_str, room_in->correctAnswer);
 
                                 for (auto& player : room_in->players_in_room) {
-                                    displayAllPlayers(player->fd, false);
+                                    room_in->displayAllPlayers(player->fd, false);
                                 }
 
                                 sendMessageToRoom("Pytanie: " + question_str, local_rooms, true);
@@ -248,11 +221,11 @@ public:
                     else if (input == "/listrooms") printRooms(fd);
                     else if (input == "/listplayers") 
                     {
-                       displayAllPlayers(fd, false);
+                       room_in->displayAllPlayers(fd, false);
                     }
                     else if (input == "/ranking")
                     {
-                        displayAllPlayers(fd, true);
+                        room_in->displayAllPlayers(fd, true);
                     }
                     else {
                         sendMessageToRoom(input, local_rooms);
@@ -509,7 +482,7 @@ void Room::playerAnswered()
                 winner = p;
                 break;
             }
-            p->displayAllPlayers(p->fd, false);
+            this->displayAllPlayers(p->fd, false);
         }
 
         if (hasWinner)
@@ -521,7 +494,7 @@ void Room::playerAnswered()
             {
                 p->points = 0;
                 write(p->fd, endMsg.c_str(), endMsg.size());
-                p->displayAllPlayers(p->fd, true);
+                this->displayAllPlayers(p->fd, true);
             }
             gameStarted = false;
             printf("Gra w pokoju '%s' została zakończona zwycięstwem '%s'.\n", name.c_str(), winner->name.c_str());
@@ -592,6 +565,21 @@ int setNonBlocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) return -1;
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+void Room::displayAllPlayers(int fd, bool which_points) const
+{
+    string message = "Pokój ID: " + to_string(room_id) + ", Nazwa: " + name + "\n";
+    message += "Lista graczy:\n";
+    for (auto* player : players_in_room)
+    {
+        bool isLider = (player == leader);
+        int showPoints = which_points ? player->big_points : player->points;
+        message += " - " + player->name + (isLider ? " (lider), Points: " : ", Points: ")
+            + to_string(showPoints) + "\n";
+    }
+    message += "END\n";
+    write(fd, message.c_str(), message.size());
 }
 
 int main(int argc, char **argv)
