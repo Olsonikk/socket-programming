@@ -51,7 +51,7 @@ class MathQuizClient:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="Enter IP: (foramt: 127.0.0.1)", font=("Arial", 16)).pack(pady=20)
+        tk.Label(self.root, text="Enter IP: (format: 127.0.0.1)", font=("Arial", 16)).pack(pady=20)
 
         self.ip_entry = tk.Entry(self.root, font=("Arial", 14), validate="key", validatecommand=(self.validate_command_s, "%P"))
         self.ip_entry.pack(pady=10)
@@ -67,7 +67,7 @@ class MathQuizClient:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        tk.Label(self.root, text="Enter port: (foramt: 1234)", font=("Arial", 16)).pack(pady=20)
+        tk.Label(self.root, text="Enter port: (format: 1234)", font=("Arial", 16)).pack(pady=20)
 
         self.port_entry = tk.Entry(self.root, font=("Arial", 14), validate="key", validatecommand=(self.validate_command_s, "%P"))
         self.port_entry.pack(pady=10)
