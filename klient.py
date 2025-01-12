@@ -5,6 +5,7 @@ import socket
 import select
 import threading
 import queue
+import sys
 
 class MathQuizClient:
     def __init__(self, root, server_address=('127.0.0.1', 2222)):
@@ -39,7 +40,11 @@ class MathQuizClient:
             print("Connected to server")
         except ConnectionRefusedError:
             print("Could not connect to server")
-            self.root.quit()
+            self.root.destroy()
+            sys.exit("Application terminated: Unable to connect to server.")
+        except socket.gaierror:
+            self.root.destroy()
+            sys.exit("Application terminated: Invalid server address.")
             
                 
     def ask_ip(self):
@@ -79,7 +84,12 @@ class MathQuizClient:
         self.ask_port()
     def submit_port(self):
         self.port = self.port_entry.get()
-        self.server_address = (self.ip, int(self.port))
+        try:
+            self.server_address = (self.ip, int(self.port))
+        except:
+            self.root.destroy()
+            sys.exit("Application terminated: Unable to connect to server.")
+            
         self.connect_to_server()
         self.create_nick_entry()
             
